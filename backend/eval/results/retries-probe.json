@@ -1,0 +1,163 @@
+{
+  "config": {
+    "label": "retries-probe",
+    "split": "all",
+    "model": "claude-opus-5-5",
+    "effort": "medium",
+    "max_attempts": 3,
+    "questions_version": 2,
+    "semantic_version": 1,
+    "dataset": {
+      "generator_version": "2",
+      "seed": 42,
+      "scale": "small",
+      "reference_date": "2026-09-30"
+    },
+    "commit": "176c9aa",
+    "date": "2026-10-25 09:22 UTC"
+  },
+  "summary": {
+    "questions": 4,
+    "accuracy": 1.0,
+    "execution_accuracy": 1.0,
+    "correct_refusal_rate": null,
+    "false_refusal_rate": 0.0,
+    "valid_sql_rate": 1.0,
+    "first_try_rate": 0.75,
+    "permission_violations": 0,
+    "latency_p50_ms": 8406.0,
+    "latency_p95_ms": 19070.8,
+    "cost_total_usd": 0.0764,
+    "cost_mean_usd": 0.0191,
+    "by_split": {
+      "dev": 1.0,
+      "test": 1.0
+    },
+    "by_category": {
+      "multi_step": 1.0,
+      "trend": 1.0
+    }
+  },
+  "statuses": {
+    "answered": 4
+  },
+  "questions": [
+    {
+      "id": "rev_by_month_apr_sep_2026",
+      "split": "test",
+      "category": "trend",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "rows match",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 1,
+      "input_tokens": 93,
+      "output_tokens": 377,
+      "cache_read_tokens": 5385,
+      "cost_usd": 0.008989,
+      "total_ms": 5082.4,
+      "executed_sql": "SELECT CAST(DATE_TRUNC('MONTH', invoice_date) AS DATE) AS month, ROUND(SUM(net_revenue), 2) AS net_revenue_eur FROM analytics.sales_lines WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date < CAST('2026-10-01' AS DATE) GROUP BY 1 ORDER BY 1",
+      "error_kind": null,
+      "error": null,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT CAST(DATE_TRUNC('MONTH', invoice_date) AS DATE) AS month, ROUND(SUM(net_revenue), 2) AS net_revenue_eur FROM analytics.sales_lines WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date < CAST('2026-10-01' AS DATE) GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": "lost_customers_2026",
+      "split": "dev",
+      "category": "multi_step",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "the first row holds the reference values",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 1,
+      "input_tokens": 105,
+      "output_tokens": 567,
+      "cache_read_tokens": 5385,
+      "cost_usd": 0.012837,
+      "total_ms": 6766.1,
+      "executed_sql": "SELECT COUNT(*) AS clients_factures_2025_pas_2026 FROM (SELECT DISTINCT customer_id FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-01-01' AS DATE) AND invoice_date < CAST('2026-01-01' AS DATE) EXCEPT SELECT DISTINCT customer_id FROM analytics.sales_lines WHERE invoice_date >= CAST('2026-01-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE)) AS t",
+      "error_kind": null,
+      "error": null,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT COUNT(*) AS clients_factures_2025_pas_2026 FROM (SELECT DISTINCT customer_id FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-01-01' AS DATE) AND invoice_date < CAST('2026-01-01' AS DATE) EXCEPT SELECT DISTINCT customer_id FROM analytics.sales_lines WHERE invoice_date >= CAST('2026-01-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE)) AS t"
+        }
+      ]
+    },
+    {
+      "id": "qoq_growth_2026",
+      "split": "dev",
+      "category": "multi_step",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "rows match",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 1,
+      "input_tokens": 108,
+      "output_tokens": 911,
+      "cache_read_tokens": 5385,
+      "cost_usd": 0.019729,
+      "total_ms": 8406.0,
+      "executed_sql": "WITH q AS (SELECT CAST(DATE_TRUNC('QUARTER', invoice_date) AS DATE) AS quarter_start, SUM(net_revenue) AS net_revenue FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-10-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE) GROUP BY 1), g AS (SELECT quarter_start, net_revenue, LAG(net_revenue) OVER (ORDER BY quarter_start) AS previous_quarter_net_revenue FROM q) SELECT 'Q' || CAST(EXTRACT(QUARTER FROM quarter_start) AS INT) || ' ' || CAST(EXTRACT(YEAR FROM quarter_start) AS INT) AS quarter, ROUND(net_revenue, 2) AS net_revenue_eur, ROUND(previous_quarter_net_revenue, 2) AS previous_quarter_net_revenue_eur, ROUND(100.0 * (net_revenue - previous_quarter_net_revenue) / NULLIF(previous_quarter_net_revenue, 0), 2) AS growth_vs_previous_quarter_pct FROM g WHERE quarter_start >= CAST('2026-01-01' AS DATE) ORDER BY quarter_start",
+      "error_kind": null,
+      "error": null,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "WITH q AS (SELECT CAST(DATE_TRUNC('QUARTER', invoice_date) AS DATE) AS quarter_start, SUM(net_revenue) AS net_revenue FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-10-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE) GROUP BY 1), g AS (SELECT quarter_start, net_revenue, LAG(net_revenue) OVER (ORDER BY quarter_start) AS previous_quarter_net_revenue FROM q) SELECT 'Q' || CAST(EXTRACT(QUARTER FROM quarter_start) AS INT) || ' ' || CAST(EXTRACT(YEAR FROM quarter_start) AS INT) AS quarter, ROUND(net_revenue, 2) AS net_revenue_eur, ROUND(previous_quarter_net_revenue, 2) AS previous_quarter_net_revenue_eur, ROUND(100.0 * (net_revenue - previous_quarter_net_revenue) / NULLIF(previous_quarter_net_revenue, 0), 2) AS growth_vs_previous_quarter_pct FROM g WHERE quarter_start >= CAST('2026-01-01' AS DATE) ORDER BY quarter_start"
+        }
+      ]
+    },
+    {
+      "id": "segments_without_overdue",
+      "split": "dev",
+      "category": "multi_step",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "rows match",
+      "declined_reason": null,
+      "attempts": 2,
+      "first_try": false,
+      "llm_calls": 2,
+      "input_tokens": 1108,
+      "output_tokens": 1412,
+      "cache_read_tokens": 10770,
+      "cost_usd": 0.034826,
+      "total_ms": 19070.8,
+      "executed_sql": "WITH en_retard AS (SELECT DISTINCT customer_id FROM analytics.invoices WHERE is_overdue) SELECT c.segment, COUNT(*) FILTER(WHERE r.customer_id IS NULL) AS clients_sans_facture_en_retard, COUNT(*) AS clients_total, ROUND(CAST(COUNT(*) FILTER(WHERE r.customer_id IS NULL) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS part_sans_retard FROM analytics.customers AS c LEFT JOIN en_retard AS r ON r.customer_id = c.customer_id GROUP BY c.segment ORDER BY c.segment",
+      "error_kind": null,
+      "error": null,
+      "attempt_log": [
+        {
+          "outcome": "failed",
+          "message": "The query took longer than 5000 ms.",
+          "sql": "SELECT c.segment, COUNT(*) FILTER(WHERE NOT EXISTS(SELECT 1 FROM analytics.invoices AS i WHERE i.customer_id = c.customer_id AND i.is_overdue)) AS clients_sans_facture_en_retard, COUNT(*) AS clients_total, ROUND(CAST(COUNT(*) FILTER(WHERE NOT EXISTS(SELECT 1 FROM analytics.invoices AS i WHERE i.customer_id = c.customer_id AND i.is_overdue)) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS part_sans_retard FROM analytics.customers AS c GROUP BY c.segment ORDER BY c.segment"
+        },
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "WITH en_retard AS (SELECT DISTINCT customer_id FROM analytics.invoices WHERE is_overdue) SELECT c.segment, COUNT(*) FILTER(WHERE r.customer_id IS NULL) AS clients_sans_facture_en_retard, COUNT(*) AS clients_total, ROUND(CAST(COUNT(*) FILTER(WHERE r.customer_id IS NULL) AS DECIMAL) / NULLIF(COUNT(*), 0), 4) AS part_sans_retard FROM analytics.customers AS c LEFT JOIN en_retard AS r ON r.customer_id = c.customer_id GROUP BY c.segment ORDER BY c.segment"
+        }
+      ]
+    }
+  ]
+}

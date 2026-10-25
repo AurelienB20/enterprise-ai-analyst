@@ -2,8 +2,14 @@
 
 **Ask questions about your business data. Get trusted insights, secure SQL and interactive visualizations.**
 
-> Status: early development (milestone 0.4: first end-to-end pipeline). A question becomes
-> validated SQL, runs read-only and comes back with its full trace. No interface yet.
+> Status: early development (milestone 0.5: evaluation). A question becomes validated SQL,
+> runs read-only and comes back with its full trace. No interface yet.
+
+**Measured on 53 business questions** (reference SQL, result comparison, 8 injected
+anomalies, 7 questions to refuse): every answer right with Claude Opus 5.5, Opus 5.5 at
+low effort and Sonnet 5.5; 0 permission violations; median 3.7 to 5.2 s and $0.006 to
+$0.015 per question. The evaluation also found a 31 s query, now 1.6 s.
+[Method](docs/evaluation.md) and [results](backend/eval/results/README.md).
 
 Enterprise AI Analyst turns a business question such as *"Which 10 customers' revenue dropped
 the most this quarter?"* into a SQL query, checks it, runs it read-only on a synthetic
@@ -26,6 +32,7 @@ It is not a raw Text-to-SQL chatbot. Three ideas drive the design:
 - [Data model and injected anomalies](docs/data-model.md)
 - [Semantic layer: business definitions](docs/semantic-layer.md)
 - [Security of generated SQL: layers, attack corpus, residual risks](docs/security.md)
+- [Evaluation: method](docs/evaluation.md) and [results](backend/eval/results/README.md)
 - [Architecture decision records](docs/adr/)
 
 ## Run locally
@@ -59,6 +66,7 @@ uv run ruff format --check . && uv run ruff check . && uv run mypy
 uv run pytest                        # unit tests, the LLM is simulated
 uv run pytest -m "db and not live"   # database tests, against a disposable *_test database
 uv run pytest -m live -s             # real Claude calls (about $0.10): only on purpose
+uv run python -m eaa.evaluation run --label my-run --split dev   # the evaluation (about $0.35)
 ```
 
 ## License

@@ -28,7 +28,7 @@ def reference_date(executor: ReadOnlyExecutor, validator: SQLValidator) -> date:
     return result.rows[0][0]
 
 
-def build_services(settings: Settings) -> Services:
+def build_pipeline(settings: Settings) -> AnalysisPipeline:
     model = load()
     validator = SQLValidator(model)
     executor = ReadOnlyExecutor(
@@ -44,7 +44,7 @@ def build_services(settings: Settings) -> Services:
         ),
         render_system_prompt(model, reference_date(executor, validator)),
     )
-    pipeline = AnalysisPipeline(
+    return AnalysisPipeline(
         generator,
         validator,
         executor,
@@ -56,4 +56,8 @@ def build_services(settings: Settings) -> Services:
         ),
         max_attempts=settings.llm_max_attempts,
     )
-    return Services(pipeline=pipeline, store=AnalysisStore(settings.require_app_database_url()))
+
+
+def build_services(settings: Settings) -> Services:
+    store = AnalysisStore(settings.require_app_database_url())
+    return Services(pipeline=build_pipeline(settings), store=store)

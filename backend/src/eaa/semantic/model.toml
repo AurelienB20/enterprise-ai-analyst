@@ -19,11 +19,14 @@ reference_date = "Every relative period (this month, last quarter, the last 90 d
 
 [[views]]
 name = "dataset_info"
-description = "One row: the reference date ('today' for every analysis) and the first day of data."
+description = "One row: the reference date ('today' for every analysis), the first day of data, and which synthetic dataset is loaded."
 grain = "one row"
 columns = [
     { name = "reference_date", type = "date", classification = "public", description = "Last day of data; 'today' for relative periods." },
     { name = "start_date", type = "date", classification = "public", description = "First day of data." },
+    { name = "generator_version", type = "text", classification = "public", description = "Version of the synthetic data generator." },
+    { name = "seed", type = "integer", classification = "public", description = "Seed of the synthetic data." },
+    { name = "scale", type = "text", classification = "public", description = "Size of the synthetic dataset: small or full." },
 ]
 
 [[views]]

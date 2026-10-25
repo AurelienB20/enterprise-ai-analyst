@@ -105,7 +105,7 @@ backend/src/eaa/
 | 0.2 | Semantic layer, `analytics` views, column classification, PostgreSQL roles | Each metric tested against a hand-computed value |
 | 0.3 | SQL validator, read-only executor, adversarial tests without LLM | Each attack blocked by at least two layers |
 | 0.4 | Text-to-SQL with Claude tool calling, `POST /analyses`: first end-to-end MVP | Works end to end; LLM mocked in CI |
-| 0.5 | Evaluation: ~40 questions with reference SQL, result comparison, adversarial set | A measured baseline |
+| 0.5 | Evaluation: 53 questions with reference SQL, result comparison, dev/test split | A measured baseline (done: docs/evaluation.md) |
 | 0.6 | Privacy engine: pseudonymisation, minimum group size, tests on provider payloads | A test fails if a `pii` column reaches an LLM call |
 | 0.7 | Analysis: deterministic calculations, explanations, number check | No unchecked figure is shown |
 | 0.8 | Next.js frontend, Recharts, Analysis Trace | Checked in a browser |
