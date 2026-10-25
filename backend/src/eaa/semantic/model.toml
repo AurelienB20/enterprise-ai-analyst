@@ -1,0 +1,306 @@
+# The business semantic layer: what the analytics views contain and what each metric means.
+#
+# The views themselves are SQL (migrations/versions/0003_analytics_views.py); this file
+# documents them for people and, from milestone 0.4, for the LLM. Tests check that both
+# agree: every view and column here exists in the database with this exact type, and the
+# database has no undocumented column.
+#
+# Classification of every column:
+#   public        reference data that identifies nobody (a region, a category)
+#   internal      business data: amounts, dates, technical identifiers
+#   confidential  names a business entity (a customer company): pseudonymised before
+#                 results are sent to the LLM provider (milestone 0.6)
+#   pii           personal data: never in an analytics view
+#
+# Bump `version` whenever a definition changes meaning, and say why in the commit.
+
+version = 1
+reference_date = "Every relative period (this month, last quarter, the last 90 days) is computed from analytics.dataset_info.reference_date, never from CURRENT_DATE: the data stops on that date."
+
+[[views]]
+name = "dataset_info"
+description = "One row: the reference date ('today' for every analysis) and the first day of data."
+grain = "one row"
+columns = [
+    { name = "reference_date", type = "date", classification = "public", description = "Last day of data; 'today' for relative periods." },
+    { name = "start_date", type = "date", classification = "public", description = "First day of data." },
+]
+
+[[views]]
+name = "customers"
+description = "Customer companies (businesses, not people)."
+grain = "one row per customer"
+columns = [
+    { name = "customer_id", type = "integer", classification = "internal", description = "Customer identifier." },
+    { name = "customer_name", type = "text", classification = "confidential", description = "Company name." },
+    { name = "country", type = "character(2)", classification = "public", description = "ISO 3166-1 alpha-2 country code." },
+    { name = "region", type = "text", classification = "public", description = "Sales region: Western Europe, Southern Europe, Central Europe, Northern Europe, UK & Ireland." },
+    { name = "industry", type = "text", classification = "public", description = "Industry of the customer." },
+    { name = "segment", type = "text", classification = "public", description = "SMB, Mid-Market or Enterprise, by customer size." },
+    { name = "payment_terms_days", type = "integer", classification = "internal", description = "Days between invoice date and due date." },
+    { name = "created_at", type = "date", classification = "internal", description = "Date the customer account was opened." },
+]
+
+[[views]]
+name = "suppliers"
+description = "Suppliers of the products."
+grain = "one row per supplier"
+columns = [
+    { name = "supplier_id", type = "integer", classification = "internal", description = "Supplier identifier." },
+    { name = "supplier_name", type = "text", classification = "internal", description = "Supplier company name." },
+    { name = "country", type = "character(2)", classification = "public", description = "ISO country code of the supplier." },
+    { name = "lead_time_days", type = "integer", classification = "internal", description = "Usual days between purchase and expected delivery." },
+]
+
+[[views]]
+name = "products"
+description = "Product catalogue with category, supplier and current prices."
+grain = "one row per product"
+columns = [
+    { name = "product_id", type = "integer", classification = "internal", description = "Product identifier." },
+    { name = "sku", type = "text", classification = "internal", description = "Stock keeping unit code." },
+    { name = "product_name", type = "text", classification = "internal", description = "Product name." },
+    { name = "category_name", type = "text", classification = "public", description = "Product category." },
+    { name = "supplier_id", type = "integer", classification = "internal", description = "Supplier of the product." },
+    { name = "supplier_name", type = "text", classification = "internal", description = "Supplier company name." },
+    { name = "current_unit_price", type = "numeric(12,2)", classification = "internal", description = "Current list price, EUR excluding VAT. Past prices are in sales_lines.unit_price." },
+    { name = "current_unit_cost", type = "numeric(12,2)", classification = "internal", description = "Current unit cost, EUR. Past costs are in sales_lines.cogs." },
+]
+
+[[views]]
+name = "sales_lines"
+description = "Invoiced order lines: the grain of revenue and margin. Pending and cancelled orders are not in this view."
+grain = "one row per line of an invoiced order"
+columns = [
+    { name = "line_id", type = "integer", classification = "internal", description = "Order line identifier." },
+    { name = "order_id", type = "integer", classification = "internal", description = "Order identifier." },
+    { name = "invoice_id", type = "integer", classification = "internal", description = "Invoice of the order." },
+    { name = "customer_id", type = "integer", classification = "internal", description = "Customer identifier." },
+    { name = "customer_region", type = "text", classification = "public", description = "Sales region of the customer." },
+    { name = "customer_country", type = "character(2)", classification = "public", description = "Country of the customer." },
+    { name = "customer_segment", type = "text", classification = "public", description = "Segment of the customer." },
+    { name = "customer_industry", type = "text", classification = "public", description = "Industry of the customer." },
+    { name = "product_id", type = "integer", classification = "internal", description = "Product identifier." },
+    { name = "category_name", type = "text", classification = "public", description = "Product category." },
+    { name = "supplier_id", type = "integer", classification = "internal", description = "Supplier of the product." },
+    { name = "order_date", type = "date", classification = "internal", description = "Date the order was placed." },
+    { name = "invoice_date", type = "date", classification = "internal", description = "Date the order was invoiced: the date revenue is counted on." },
+    { name = "quantity", type = "integer", classification = "internal", description = "Units sold." },
+    { name = "unit_price", type = "numeric(12,2)", classification = "internal", description = "List price on the order date, EUR excluding VAT." },
+    { name = "gross_amount", type = "numeric", classification = "internal", description = "quantity * unit_price, before discount." },
+    { name = "discount_amount", type = "numeric(12,2)", classification = "internal", description = "Discount on the line, EUR." },
+    { name = "credited_amount", type = "numeric", classification = "internal", description = "Credit notes on this line, EUR excluding VAT." },
+    { name = "net_revenue", type = "numeric", classification = "internal", description = "gross_amount - discount_amount - credited_amount, EUR excluding VAT." },
+    { name = "cogs", type = "numeric", classification = "internal", description = "Cost of goods sold: quantity * unit cost on the order date." },
+    { name = "gross_margin", type = "numeric", classification = "internal", description = "net_revenue - cogs." },
+]
+
+[[views]]
+name = "orders"
+description = "Every order whatever its status, for counts, cancellations and the pipeline. Not for revenue: use sales_lines."
+grain = "one row per order"
+columns = [
+    { name = "order_id", type = "integer", classification = "internal", description = "Order identifier." },
+    { name = "customer_id", type = "integer", classification = "internal", description = "Customer identifier." },
+    { name = "order_date", type = "date", classification = "internal", description = "Date the order was placed." },
+    { name = "status", type = "text", classification = "internal", description = "pending, shipped, delivered or cancelled." },
+    { name = "is_invoiced", type = "boolean", classification = "internal", description = "True for shipped and delivered orders." },
+    { name = "invoice_date", type = "date", classification = "internal", description = "Invoice date, NULL if not invoiced." },
+    { name = "line_count", type = "bigint", classification = "internal", description = "Number of lines." },
+    { name = "ordered_amount", type = "numeric", classification = "internal", description = "Amount ordered after discounts, before credit notes, EUR excluding VAT. Includes cancelled orders: not revenue." },
+]
+
+[[views]]
+name = "invoices"
+description = "Invoices with credits, payments and what is still owed on the reference date."
+grain = "one row per invoice"
+columns = [
+    { name = "invoice_id", type = "integer", classification = "internal", description = "Invoice identifier." },
+    { name = "invoice_number", type = "text", classification = "internal", description = "Invoice number." },
+    { name = "order_id", type = "integer", classification = "internal", description = "Invoiced order." },
+    { name = "customer_id", type = "integer", classification = "internal", description = "Customer identifier." },
+    { name = "invoice_date", type = "date", classification = "internal", description = "Invoice date." },
+    { name = "due_date", type = "date", classification = "internal", description = "Payment due date." },
+    { name = "amount_excl_vat", type = "numeric(12,2)", classification = "internal", description = "Invoiced amount, EUR excluding VAT." },
+    { name = "vat_rate", type = "numeric(4,3)", classification = "internal", description = "0.200 for French customers, 0 otherwise (reverse charge or export)." },
+    { name = "amount_incl_vat", type = "numeric(12,2)", classification = "internal", description = "Invoiced amount including VAT." },
+    { name = "credited_excl_vat", type = "numeric", classification = "internal", description = "Credit notes on the invoice, excluding VAT." },
+    { name = "credited_incl_vat", type = "numeric", classification = "internal", description = "Credit notes on the invoice, including VAT." },
+    { name = "paid_amount", type = "numeric", classification = "internal", description = "Payments received by the reference date, including VAT." },
+    { name = "outstanding_amount", type = "numeric", classification = "internal", description = "amount_incl_vat - credited_incl_vat - paid_amount: what the customer still owes." },
+    { name = "is_settled", type = "boolean", classification = "internal", description = "Nothing left to pay." },
+    { name = "settled_date", type = "date", classification = "internal", description = "Date of the payment that settled it; NULL if not settled." },
+    { name = "is_due", type = "boolean", classification = "internal", description = "due_date is before the reference date." },
+    { name = "is_overdue", type = "boolean", classification = "internal", description = "Due and not settled." },
+    { name = "days_overdue", type = "integer", classification = "internal", description = "reference_date - due_date for overdue invoices, else NULL." },
+    { name = "days_paid_late", type = "integer", classification = "internal", description = "For settled invoices: days between due date and settlement, 0 if on time." },
+]
+
+[[views]]
+name = "customer_activity"
+description = "Activity and revenue windows of every customer on the reference date."
+grain = "one row per customer"
+columns = [
+    { name = "customer_id", type = "integer", classification = "internal", description = "Customer identifier." },
+    { name = "last_order_date", type = "date", classification = "internal", description = "Last non-cancelled order; NULL if none." },
+    { name = "days_since_last_order", type = "integer", classification = "internal", description = "reference_date - last_order_date." },
+    { name = "order_count", type = "bigint", classification = "internal", description = "Non-cancelled orders over the whole period." },
+    { name = "is_active", type = "boolean", classification = "internal", description = "Placed a non-cancelled order in the last 90 days." },
+    { name = "became_inactive", type = "boolean", classification = "internal", description = "Ordered in the 90 days before the last 90, but not in the last 90." },
+    { name = "net_revenue_last_12_months", type = "numeric", classification = "internal", description = "Net revenue invoiced in the last 365 days." },
+    { name = "net_revenue_previous_12_months", type = "numeric", classification = "internal", description = "Net revenue invoiced in the 365 days before that." },
+]
+
+[[views]]
+name = "supplier_deliveries"
+description = "Purchases from suppliers and whether they arrived on time."
+grain = "one row per delivery"
+columns = [
+    { name = "delivery_id", type = "integer", classification = "internal", description = "Delivery identifier." },
+    { name = "supplier_id", type = "integer", classification = "internal", description = "Supplier identifier." },
+    { name = "supplier_name", type = "text", classification = "internal", description = "Supplier company name." },
+    { name = "product_id", type = "integer", classification = "internal", description = "Product delivered." },
+    { name = "quantity", type = "integer", classification = "internal", description = "Units purchased." },
+    { name = "order_date", type = "date", classification = "internal", description = "Purchase date." },
+    { name = "expected_date", type = "date", classification = "internal", description = "Expected delivery date." },
+    { name = "delivered_date", type = "date", classification = "internal", description = "Actual delivery date; NULL if not delivered yet." },
+    { name = "is_delivered", type = "boolean", classification = "internal", description = "Delivered by the reference date." },
+    { name = "is_due", type = "boolean", classification = "internal", description = "expected_date is before the reference date." },
+    { name = "is_late", type = "boolean", classification = "internal", description = "Delivered after expected_date, or still missing after it." },
+    { name = "days_late", type = "integer", classification = "internal", description = "Days after expected_date (so far, if not delivered); 0 if on time." },
+]
+
+[[views]]
+name = "inventory_snapshots"
+description = "Stock on hand per product at each month end. Not reconciled with sales and deliveries."
+grain = "one row per product and month end"
+columns = [
+    { name = "snapshot_date", type = "date", classification = "internal", description = "Month end (the reference date for the last month)." },
+    { name = "product_id", type = "integer", classification = "internal", description = "Product identifier." },
+    { name = "quantity_on_hand", type = "integer", classification = "internal", description = "Units in stock." },
+]
+
+# Data deliberately absent from every analytics view.
+[[withheld]]
+source = "sales.customer_contacts"
+classification = "pii"
+reason = "Names, emails and phone numbers of people: personal data with no analytical use here."
+
+[[withheld]]
+source = "sales.dataset_anomalies"
+classification = "internal"
+reason = "Ground truth of the evaluation: the system must find the anomalies, not read them."
+
+# Metrics: the definitions the LLM must use instead of improvising.
+# `expression` is an aggregate over `view`; `time_column` is the date to filter periods on.
+
+[[metrics]]
+name = "net_revenue"
+label = "Net revenue (chiffre d'affaires net)"
+unit = "EUR"
+view = "sales_lines"
+expression = "SUM(net_revenue)"
+time_column = "invoice_date"
+rules = [
+    "Only invoiced orders (shipped or delivered); pending and cancelled orders are excluded.",
+    "Discounts are deducted.",
+    "Credit notes are deducted from the line they credit, in the invoice's period.",
+    "Excluding VAT.",
+    "Counted on the invoice date.",
+]
+
+[[metrics]]
+name = "gross_margin"
+label = "Gross margin (marge brute)"
+unit = "EUR"
+view = "sales_lines"
+expression = "SUM(gross_margin)"
+time_column = "invoice_date"
+rules = [
+    "Net revenue minus cost of goods sold (quantity times the unit cost on the order date).",
+    "Returned goods do not reduce the cost of goods sold (known simplification).",
+]
+
+[[metrics]]
+name = "gross_margin_rate"
+label = "Gross margin rate (taux de marge brute)"
+unit = "ratio"
+view = "sales_lines"
+expression = "SUM(gross_margin) / NULLIF(SUM(net_revenue), 0)"
+time_column = "invoice_date"
+rules = [
+    "Ratio of sums over the whole group, never an average of per-line rates.",
+]
+
+[[metrics]]
+name = "invoiced_orders"
+label = "Invoiced orders"
+unit = "count"
+view = "sales_lines"
+expression = "COUNT(DISTINCT order_id)"
+time_column = "invoice_date"
+rules = ["Orders that were invoiced in the period."]
+
+[[metrics]]
+name = "average_order_value"
+label = "Average order value (panier moyen)"
+unit = "EUR"
+view = "sales_lines"
+expression = "SUM(net_revenue) / NULLIF(COUNT(DISTINCT order_id), 0)"
+time_column = "invoice_date"
+rules = ["Net revenue divided by the number of invoiced orders, excluding VAT."]
+
+[[metrics]]
+name = "cancellation_rate"
+label = "Cancellation rate"
+unit = "ratio"
+view = "orders"
+expression = "AVG(CASE WHEN status = 'cancelled' THEN 1.0 ELSE 0.0 END)"
+time_column = "order_date"
+rules = ["Share of orders placed in the period that were cancelled."]
+
+[[metrics]]
+name = "active_customers"
+label = "Active customers"
+unit = "count"
+view = "customer_activity"
+expression = "COUNT(*) FILTER (WHERE is_active)"
+rules = ["A customer is active if it placed a non-cancelled order in the 90 days up to the reference date."]
+
+[[metrics]]
+name = "overdue_amount"
+label = "Overdue amount (encours échu)"
+unit = "EUR"
+view = "invoices"
+expression = "SUM(outstanding_amount) FILTER (WHERE is_overdue)"
+rules = [
+    "What customers still owe on invoices whose due date is before the reference date, including VAT.",
+    "Net of credit notes and partial payments.",
+]
+
+[[metrics]]
+name = "overdue_invoice_rate"
+label = "Overdue invoice rate (taux de factures impayées)"
+unit = "ratio"
+view = "invoices"
+expression = "AVG(CASE WHEN is_overdue THEN 1.0 ELSE 0.0 END) FILTER (WHERE is_due)"
+time_column = "due_date"
+rules = ["Among invoices due before the reference date, the share not settled yet."]
+
+[[metrics]]
+name = "average_days_paid_late"
+label = "Average payment delay"
+unit = "days"
+view = "invoices"
+expression = "AVG(days_paid_late)"
+time_column = "settled_date"
+rules = ["Settled invoices only; an invoice paid on time counts as 0 days."]
+
+[[metrics]]
+name = "late_delivery_rate"
+label = "Supplier late delivery rate"
+unit = "ratio"
+view = "supplier_deliveries"
+expression = "AVG(CASE WHEN is_late THEN 1.0 ELSE 0.0 END) FILTER (WHERE is_due)"
+time_column = "expected_date"
+rules = ["Among deliveries expected before the reference date, the share delivered late or still missing."]

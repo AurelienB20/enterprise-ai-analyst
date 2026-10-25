@@ -22,7 +22,7 @@ from typing import Literal
 
 from eaa.synthetic import catalog
 
-GENERATOR_VERSION = "1"
+GENERATOR_VERSION = "2"  # 2: credit notes name the product they credit
 START_DATE = date(2023, 1, 1)
 # "Today" for every analysis: the data stops here, so "last month" never drifts.
 REFERENCE_DATE = date(2026, 9, 30)
@@ -157,99 +157,109 @@ def _largest_remainder(total: int, weights: Sequence[float]) -> list[int]:
     return counts
 
 
+# The sales tables and their columns, in foreign-key order.
+TABLE_COLUMNS: dict[str, tuple[str, ...]] = dict(
+    (
+        (
+            "dataset_metadata",
+            ("id", "generator_version", "seed", "scale", "start_date", "reference_date"),
+        ),
+        ("dataset_anomalies", ("code", "description", "entity_type", "entity_id")),
+        ("categories", ("id", "category_name")),
+        ("suppliers", ("id", "supplier_name", "country", "lead_time_days")),
+        (
+            "products",
+            (
+                "id",
+                "sku",
+                "product_name",
+                "category_id",
+                "supplier_id",
+                "unit_price",
+                "cost_price",
+                "created_at",
+            ),
+        ),
+        (
+            "customers",
+            (
+                "id",
+                "customer_name",
+                "country",
+                "region",
+                "industry",
+                "segment",
+                "payment_terms_days",
+                "created_at",
+            ),
+        ),
+        (
+            "customer_contacts",
+            ("id", "customer_id", "first_name", "last_name", "email", "phone", "job_title"),
+        ),
+        ("orders", ("id", "customer_id", "order_date", "status")),
+        (
+            "order_items",
+            (
+                "id",
+                "order_id",
+                "product_id",
+                "quantity",
+                "unit_price",
+                "unit_cost",
+                "discount_amount",
+            ),
+        ),
+        (
+            "invoices",
+            (
+                "id",
+                "invoice_number",
+                "order_id",
+                "invoice_date",
+                "due_date",
+                "amount_excl_vat",
+                "vat_rate",
+                "amount_incl_vat",
+                "status",
+            ),
+        ),
+        (
+            "credit_notes",
+            (
+                "id",
+                "invoice_id",
+                "product_id",
+                "credit_note_date",
+                "amount_excl_vat",
+                "reason",
+            ),
+        ),
+        ("payments", ("id", "invoice_id", "payment_date", "amount", "payment_method")),
+        (
+            "supplier_deliveries",
+            (
+                "id",
+                "supplier_id",
+                "product_id",
+                "quantity",
+                "order_date",
+                "expected_date",
+                "delivered_date",
+            ),
+        ),
+        ("inventory_snapshots", ("snapshot_date", "product_id", "quantity_on_hand")),
+    )
+)
+
+
 class _Generator:
     def __init__(self, seed: int, scale: ScaleName) -> None:
         self.rng = random.Random(seed)
         self.seed = seed
         self.scale_name = scale
         self.scale = SCALES[scale]
-        self.tables = {
-            name: Table(name, columns)
-            for name, columns in (
-                (
-                    "dataset_metadata",
-                    ("id", "generator_version", "seed", "scale", "start_date", "reference_date"),
-                ),
-                ("dataset_anomalies", ("code", "description", "entity_type", "entity_id")),
-                ("categories", ("id", "category_name")),
-                ("suppliers", ("id", "supplier_name", "country", "lead_time_days")),
-                (
-                    "products",
-                    (
-                        "id",
-                        "sku",
-                        "product_name",
-                        "category_id",
-                        "supplier_id",
-                        "unit_price",
-                        "cost_price",
-                        "created_at",
-                    ),
-                ),
-                (
-                    "customers",
-                    (
-                        "id",
-                        "customer_name",
-                        "country",
-                        "region",
-                        "industry",
-                        "segment",
-                        "payment_terms_days",
-                        "created_at",
-                    ),
-                ),
-                (
-                    "customer_contacts",
-                    ("id", "customer_id", "first_name", "last_name", "email", "phone", "job_title"),
-                ),
-                ("orders", ("id", "customer_id", "order_date", "status")),
-                (
-                    "order_items",
-                    (
-                        "id",
-                        "order_id",
-                        "product_id",
-                        "quantity",
-                        "unit_price",
-                        "unit_cost",
-                        "discount_amount",
-                    ),
-                ),
-                (
-                    "invoices",
-                    (
-                        "id",
-                        "invoice_number",
-                        "order_id",
-                        "invoice_date",
-                        "due_date",
-                        "amount_excl_vat",
-                        "vat_rate",
-                        "amount_incl_vat",
-                        "status",
-                    ),
-                ),
-                (
-                    "credit_notes",
-                    ("id", "invoice_id", "credit_note_date", "amount_excl_vat", "reason"),
-                ),
-                ("payments", ("id", "invoice_id", "payment_date", "amount", "payment_method")),
-                (
-                    "supplier_deliveries",
-                    (
-                        "id",
-                        "supplier_id",
-                        "product_id",
-                        "quantity",
-                        "order_date",
-                        "expected_date",
-                        "delivered_date",
-                    ),
-                ),
-                ("inventory_snapshots", ("snapshot_date", "product_id", "quantity_on_hand")),
-            )
-        }
+        self.tables = {name: Table(name, columns) for name, columns in TABLE_COLUMNS.items()}
         self.months = month_starts(START_DATE, REFERENCE_DATE)
         self.products: list[_Product] = []
         self.customers: list[_Customer] = []
@@ -635,25 +645,21 @@ class _Generator:
             )
             amount_incl = money(amount * (1 + vat_rate))
 
-            credits: list[tuple[date, Decimal, str]] = []
+            # A credit note credits one line of the invoice: (date, product, amount, reason).
+            credits: list[tuple[date, _Product, Decimal, str]] = []
             if returned in (p for p, _ in lines) and invoice_date.replace(day=1) == RETURNS_MONTH:
                 if self.rng.random() < 0.5:
                     net = next(n for p, n in lines if p is returned)
-                    credits.append(
-                        (invoice_date + timedelta(days=self.rng.randint(5, 20)), net, "return")
-                    )
+                    credit_date = invoice_date + timedelta(days=self.rng.randint(5, 20))
+                    credits.append((credit_date, returned, net, "return"))
             elif self.rng.random() < 0.02 and amount > 0:
+                product, net = self.rng.choice(lines)
                 reason = self.rng.choice(["return", "pricing_error", "goodwill"])
                 share = Decimal(str(round(self.rng.uniform(0.05, 0.5), 4)))
-                credits.append(
-                    (
-                        invoice_date + timedelta(days=self.rng.randint(5, 40)),
-                        money(amount * share),
-                        reason,
-                    )
-                )
-            credits = [c for c in credits if c[0] <= REFERENCE_DATE and c[1] > 0]
-            credited_incl = sum((money(c[1] * (1 + vat_rate)) for c in credits), Decimal(0))
+                credit_date = invoice_date + timedelta(days=self.rng.randint(5, 40))
+                credits.append((credit_date, product, money(net * share), reason))
+            credits = [c for c in credits if c[0] <= REFERENCE_DATE and c[2] > 0]
+            credited_incl = sum((money(c[2] * (1 + vat_rate)) for c in credits), Decimal(0))
             owed = amount_incl - credited_incl
 
             paid = Decimal(0)
@@ -688,10 +694,11 @@ class _Generator:
                     status_on_reference,
                 ),
             )
-            for credit_date, credit_amount, reason in credits:
+            for credit_date, product, credit_amount, reason in credits:
                 credit_id += 1
                 self._add(
-                    "credit_notes", (credit_id, invoice_id, credit_date, credit_amount, reason)
+                    "credit_notes",
+                    (credit_id, invoice_id, product.id, credit_date, credit_amount, reason),
                 )
 
     def _payments(

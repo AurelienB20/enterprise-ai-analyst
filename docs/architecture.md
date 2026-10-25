@@ -41,7 +41,7 @@ Each layer must stop an attack on its own; tests check each layer separately.
    statement over allowlisted views, calling allowlisted functions. An allowlist, not a
    denylist: a denylist of dangerous functions is never complete.
    It fails early with a clear message, but it is **not** the security boundary.
-2. **PostgreSQL role `eaa_reader`** (milestone 0.2). `SELECT` on the `analytics` schema
+2. **PostgreSQL role `eaa_reader`** (milestone 0.2, ADR 0005). `SELECT` on the `analytics` schema
    only; no access to raw tables, personal-data columns or the `app` schema. This is the
    boundary: a query that slips past the validator is still refused by the database.
 3. **Executor** (milestone 0.3). Read-only transaction with `SET LOCAL statement_timeout`,
@@ -61,11 +61,12 @@ reference date, given to the LLM, so that "last month" means the same thing in e
 
 ## Semantic layer (milestone 0.2)
 
-Metric definitions (revenue, gross margin, active customer, late payment) live in
-versioned YAML files and are compiled into the `analytics` views. The LLM chooses
-columns that are already defined; it cannot redefine revenue. Each column is also
-classified (`public`, `internal`, `pii`, `sensitive`), and that classification drives
-what views expose and what may reach the LLM.
+The business definitions (revenue, gross margin, active customer, late payment) are
+encoded in the SQL of the `analytics` views and documented, column by column, in
+`backend/src/eaa/semantic/model.toml`; tests check that both agree and compute every
+metric by hand. The LLM chooses columns that are already defined; it cannot redefine
+revenue. Each column is classified (`public`, `internal`, `confidential`, `pii`): no view
+has a `pii` column. See [semantic-layer.md](semantic-layer.md) and ADR 0004.
 
 ## What is sent to the LLM provider
 

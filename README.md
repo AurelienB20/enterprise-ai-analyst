@@ -2,8 +2,8 @@
 
 **Ask questions about your business data. Get trusted insights, secure SQL and interactive visualizations.**
 
-> Status: early development (milestone 0.1: schema and synthetic data). Nothing answers
-> questions yet.
+> Status: early development (milestone 0.2: semantic layer and read-only role). Nothing
+> answers questions yet.
 
 Enterprise AI Analyst turns a business question such as *"Which 10 customers' revenue dropped
 the most this quarter?"* into a SQL query, checks it, runs it read-only on a synthetic
@@ -24,6 +24,7 @@ It is not a raw Text-to-SQL chatbot. Three ideas drive the design:
 
 - [Architecture and roadmap](docs/architecture.md)
 - [Data model and injected anomalies](docs/data-model.md)
+- [Semantic layer: business definitions](docs/semantic-layer.md)
 - [Architecture decision records](docs/adr/)
 
 ## Run locally
@@ -34,8 +35,9 @@ Requirements: Python 3.12, [uv](https://docs.astral.sh/uv/) and PostgreSQL 16.
 cd backend
 uv sync
 cp .env.example .env        # then set the passwords
-# as the PostgreSQL superuser, once: create the role and the eaa / eaa_test databases
+# as the PostgreSQL superuser, once: the roles and the eaa / eaa_test databases
 psql -v ON_ERROR_STOP=1 -v owner_password=... -f scripts/create_local_databases.sql
+psql -v ON_ERROR_STOP=1 -v reader_password=... -f scripts/create_reader_role.sql
 uv run alembic upgrade head
 uv run python -m eaa.synthetic --scale small --seed 42
 uv run uvicorn eaa.main:create_app --factory --reload

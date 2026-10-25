@@ -79,7 +79,7 @@ class Facts:
         credited: dict[object, Decimal] = defaultdict(Decimal)
         vat = {row[0]: row[6] for row in tables["invoices"].rows}
         for row in tables["credit_notes"].rows:
-            credited[row[1]] += money(row[3] * (1 + vat[row[1]]))  # type: ignore[operator]
+            credited[row[1]] += money(row[4] * (1 + vat[row[1]]))  # type: ignore[operator]
         totals: dict[object, Decimal] = defaultdict(Decimal)
         for row in tables["invoices"].rows:
             invoice_id, order_id, due_date, amount_incl = row[0], row[2], row[4], row[7]

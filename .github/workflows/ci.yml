@@ -38,6 +38,7 @@ jobs:
           --health-retries 30
     env:
       TEST_DATABASE_URL: postgresql://eaa_owner:eaa_owner@127.0.0.1:5432/eaa_test
+      TEST_READER_DATABASE_URL: postgresql://eaa_reader:eaa_reader@127.0.0.1:5432/eaa_test
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.2
@@ -54,5 +55,9 @@ jobs:
         run: uv run mypy
       - name: Unit tests
         run: uv run pytest -W error
+      - name: Create the reader role
+        run: >-
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -v reader_password=eaa_reader
+          -f scripts/create_reader_role.sql
       - name: Database tests (PostgreSQL 16)
         run: uv run pytest -W error -m db

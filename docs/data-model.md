@@ -29,7 +29,7 @@ The fictional company is based in France and sells office and facility products
 | `orders` | Customer, date, status | `pending`, `shipped`, `delivered`, `cancelled` |
 | `order_items` | Quantity, list price **and unit cost on the order date**, discount | Prices rise every 1 January, so history lives on the line, not on the product |
 | `invoices` | One per shipped or delivered order; amounts excl. and incl. VAT; due date | `status` is the payment status on the reference date; *overdue* is derived from `due_date`, not stored |
-| `credit_notes` | Partial credits on an invoice: return, pricing error, goodwill | They reduce what the customer owes |
+| `credit_notes` | Credits on one line (product) of an invoice: return, pricing error, goodwill | They reduce what the customer owes |
 | `payments` | Amounts received (incl. VAT), method | Only payments made by the reference date exist |
 | `supplier_deliveries` | Purchase date, expected and actual delivery date | `delivered_date` is NULL when not delivered yet |
 | `inventory_snapshots` | Stock on hand per product at each month end | Not reconciled with deliveries and sales (a known simplification) |

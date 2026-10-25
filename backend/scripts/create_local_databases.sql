@@ -1,6 +1,8 @@
 -- Creates the owner role and the two local databases. Idempotent: safe to run again.
--- Run as the PostgreSQL superuser, with the owner password from backend/.env:
+-- Run as the PostgreSQL superuser, with the owner password from backend/.env, then
+-- run create_reader_role.sql the same way:
 --   wsl -d Debian -u postgres -- psql -v ON_ERROR_STOP=1 -v owner_password=... -f - < scripts/create_local_databases.sql
+--   wsl -d Debian -u postgres -- psql -v ON_ERROR_STOP=1 -v reader_password=... -f - < scripts/create_reader_role.sql
 --
 -- eaa       development database: never dropped without the owner's approval.
 -- eaa_test  disposable: the database tests migrate it up and down.

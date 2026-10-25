@@ -53,7 +53,7 @@ def test_every_row_has_one_value_per_column(dataset: Dataset) -> None:
     [
         ("orders", 2),
         ("invoices", 3),
-        ("credit_notes", 2),
+        ("credit_notes", 3),
         ("payments", 2),
         ("supplier_deliveries", 4),
         ("inventory_snapshots", 0),
@@ -115,7 +115,7 @@ def test_payments_and_credit_notes_never_exceed_the_invoice(dataset: Dataset) ->
         assert payment_date >= invoices[invoice_id][3]  # type: ignore[operator]
         paid[invoice_id] += amount  # type: ignore[operator]
     credited: dict[object, Decimal] = defaultdict(Decimal)
-    for _, invoice_id, _, amount, _ in rows(dataset, "credit_notes"):
+    for _, invoice_id, _, _, amount, _ in rows(dataset, "credit_notes"):
         credited[invoice_id] += amount  # type: ignore[operator]
     for invoice_id, row in invoices.items():
         excl, vat, incl, status = row[5], row[6], row[7], row[8]
@@ -128,6 +128,22 @@ def test_payments_and_credit_notes_never_exceed_the_invoice(dataset: Dataset) ->
             assert 0 < paid[invoice_id] < owed
         else:
             assert paid[invoice_id] == 0
+
+
+def test_a_credit_note_credits_at_most_one_line_of_its_invoice(dataset: Dataset) -> None:
+    order_of_invoice = {row[0]: row[2] for row in rows(dataset, "invoices")}
+    line_net = {
+        (row[1], row[2]): row[3] * row[4] - row[6]  # type: ignore[operator]
+        for row in rows(dataset, "order_items")
+    }
+    credited: dict[tuple[object, object], Decimal] = defaultdict(Decimal)
+    for _, invoice_id, product_id, _, amount, _ in rows(dataset, "credit_notes"):
+        credited[(order_of_invoice[invoice_id], product_id)] += amount  # type: ignore[operator]
+
+    assert credited
+    for line, amount in credited.items():
+        assert line in line_net
+        assert amount <= line_net[line]
 
 
 def test_august_is_the_quietest_month_and_volume_grows(dataset: Dataset) -> None:
@@ -148,4 +164,4 @@ def test_supplier_deliveries_are_dated_consistently(dataset: Dataset) -> None:
 
 def test_the_reference_date_is_recorded(dataset: Dataset) -> None:
     (metadata,) = rows(dataset, "dataset_metadata")
-    assert metadata == (1, "1", 42, "small", START_DATE, date(2026, 9, 30))
+    assert metadata == (1, "2", 42, "small", START_DATE, date(2026, 9, 30))

@@ -94,17 +94,15 @@ def test_a7_the_one_off_order_is_by_far_the_largest(facts: Facts) -> None:
 
 
 def test_a8_the_returned_product_has_the_most_returns_that_month(facts: Facts) -> None:
-    tables = facts.dataset.tables
-    returned_invoices = {row[1] for row in tables["credit_notes"].rows if row[4] == "return"}
-    order_of_invoice = {
-        row[0]: row[2]
-        for row in tables["invoices"].rows
-        if row[3].replace(day=1) == RETURNS_MONTH  # type: ignore[attr-defined]
+    invoice_month = {
+        row[0]: row[3].replace(day=1)  # type: ignore[attr-defined]
+        for row in facts.dataset.tables["invoices"].rows
     }
     returns: dict[object, int] = defaultdict(int)
-    returned_orders = {order_of_invoice[i] for i in returned_invoices if i in order_of_invoice}
-    for row in tables["order_items"].rows:
-        if row[1] in returned_orders:
-            returns[row[2]] += 1
+    for _, invoice_id, product_id, _, _, reason in facts.dataset.tables["credit_notes"].rows:
+        if reason == "return" and invoice_month[invoice_id] == RETURNS_MONTH:
+            returns[product_id] += 1
+    ranked = sorted(returns.values(), reverse=True)
 
     assert top(returns) == facts.anomalies["A8_RETURNS_SPIKE"]
+    assert ranked[0] >= 3 * ranked[1]
