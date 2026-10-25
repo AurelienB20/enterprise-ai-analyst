@@ -5,9 +5,9 @@ LLM_MODEL must be set (backend/.env.example proposes one).
 """
 
 from functools import lru_cache
-from typing import Literal, Self
+from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AppEnv = Literal["development", "test", "production"]
@@ -64,13 +64,15 @@ class Settings(BaseSettings):
     llm_output_price_per_mtok: float = Field(default=20.0, ge=0)
     llm_cache_read_price_per_mtok: float = Field(default=0.2, ge=0)
 
-    @model_validator(mode="after")
-    def _production_needs_limits(self) -> Self:
-        if self.app_env == "production" and self.api_key is None:
-            raise ValueError("API_KEY is required in production")
-        if self.app_env == "production" and self.daily_budget_usd is None:
-            raise ValueError("DAILY_BUDGET_USD is required in production")
-        return self
+    def check_can_serve(self) -> None:
+        """Refuse to serve the API in production without its protections. Checked when
+        the API starts, not here: the migration and data jobs use the same settings."""
+        if self.app_env != "production":
+            return
+        if self.api_key is None:
+            raise RuntimeError("API_KEY is required in production")
+        if self.daily_budget_usd is None:
+            raise RuntimeError("DAILY_BUDGET_USD is required in production")
 
     def require_database_url(self) -> str:
         if self.database_url is None:

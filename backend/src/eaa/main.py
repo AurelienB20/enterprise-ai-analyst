@@ -36,6 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 def create_app(settings: Settings | None = None, services: Services | None = None) -> FastAPI:
     settings = settings or get_settings()
+    settings.check_can_serve()
     configure_logging(settings.log_level, settings.log_format)
 
     # The interactive docs list every route: useful locally, not in production.

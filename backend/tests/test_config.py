@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from eaa.config import Settings
 from eaa.db import sqlalchemy_url
+from eaa.main import create_app
 
 
 def test_defaults_are_safe_for_local_development() -> None:
@@ -32,11 +33,18 @@ def test_an_unknown_environment_is_rejected(monkeypatch: pytest.MonkeyPatch) -> 
         Settings(_env_file=None)
 
 
-def test_production_requires_an_api_key_and_a_budget() -> None:
-    with pytest.raises(ValidationError, match="API_KEY is required"):
-        Settings(_env_file=None, app_env="production", daily_budget_usd=5)
-    with pytest.raises(ValidationError, match="DAILY_BUDGET_USD is required"):
-        Settings(_env_file=None, app_env="production", api_key="k")
+def test_serving_in_production_requires_an_api_key_and_a_budget() -> None:
+    with pytest.raises(RuntimeError, match="API_KEY is required"):
+        create_app(Settings(_env_file=None, app_env="production", daily_budget_usd=5))
+    with pytest.raises(RuntimeError, match="DAILY_BUDGET_USD is required"):
+        create_app(Settings(_env_file=None, app_env="production", api_key="k"))
+
+
+def test_jobs_can_run_in_production_without_the_api_settings() -> None:
+    # The migration and data jobs only need DATABASE_URL.
+    settings = Settings(_env_file=None, app_env="production", database_url="postgresql://x")
+
+    assert settings.require_database_url() == "postgresql://x"
 
 
 def test_a_missing_llm_model_fails_clearly() -> None:
