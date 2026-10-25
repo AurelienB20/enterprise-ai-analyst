@@ -98,3 +98,12 @@ def test_the_reader_cannot_read_the_audit_trail(reader_database_url: str) -> Non
         pytest.raises(psycopg.errors.InsufficientPrivilege),
     ):
         connection.execute("SELECT question FROM app.analyses")
+
+
+def test_todays_spending_adds_up_recorded_costs(app_database_url: str) -> None:
+    store = AnalysisStore(app_database_url)
+    before = store.spent_today()
+
+    store.record(answered(), correlation_id=None)
+
+    assert store.spent_today() - before == Decimal("0.000123")

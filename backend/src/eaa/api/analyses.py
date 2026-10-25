@@ -15,6 +15,8 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, StringConstraints
 
+from eaa.api.limits import ConcurrencyLimiter, check_budget
+from eaa.config import Settings
 from eaa.observability.logs import correlation_id_var
 from eaa.orchestrator.pipeline import Analysis, Outcome, Status
 from eaa.services import Services
@@ -185,11 +187,35 @@ def get_services(request: Request) -> Services:
     return services
 
 
-@router.post("")
+async def admit(request: Request, services: Services) -> ConcurrencyLimiter:
+    """Apply the limits of eaa.api.limits; returns the limiter whose slot is now held."""
+    settings: Settings = request.app.state.settings
+    client = request.client.host if request.client else "unknown"
+    request.app.state.rate_limiter.check(client)
+    spent = await run_in_threadpool(services.store.spent_today)
+    check_budget(spent, settings.daily_budget_usd)
+    limiter: ConcurrencyLimiter = request.app.state.concurrency_limiter
+    limiter.acquire()
+    return limiter
+
+
+LIMIT_RESPONSES: dict[int | str, dict[str, Any]] = {
+    429: {"description": "Too many analyses from this client, or the daily budget is spent."},
+    503: {"description": "Too many analyses at once, or the service is not configured."},
+}
+
+
+@router.post("", responses=LIMIT_RESPONSES)
 async def create_analysis(
-    body: AnalysisRequest, services: Annotated[Services, Depends(get_services)]
+    request: Request,
+    body: AnalysisRequest,
+    services: Annotated[Services, Depends(get_services)],
 ) -> AnalysisResponse:
-    analysis = await run_in_threadpool(services.pipeline.run, body.question)
+    limiter = await admit(request, services)
+    try:
+        analysis = await run_in_threadpool(services.pipeline.run, body.question)
+    finally:
+        limiter.release()
     try:
         await run_in_threadpool(services.store.record, analysis, correlation_id_var.get())
     except Exception:
@@ -207,6 +233,7 @@ def _event(name: str, data: BaseModel | dict[str, Any]) -> str:
     "/stream",
     response_class=StreamingResponse,
     responses={
+        **LIMIT_RESPONSES,
         200: {
             "content": {"text/event-stream": {}},
             "description": (
@@ -214,13 +241,25 @@ def _event(name: str, data: BaseModel | dict[str, Any]) -> str:
                 "yet), then `done` (the same with the checked explanation, final timings "
                 "and cost), or `error`."
             ),
-        }
+        },
     },
 )
 async def stream_analysis(
-    body: AnalysisRequest, services: Annotated[Services, Depends(get_services)]
+    request: Request,
+    body: AnalysisRequest,
+    services: Annotated[Services, Depends(get_services)],
 ) -> StreamingResponse:
+    # Limits apply before the stream starts, so they come back as plain HTTP errors.
+    limiter = await admit(request, services)
+
     async def events() -> AsyncIterator[str]:
+        try:
+            async for event in _analysis_events():
+                yield event
+        finally:
+            limiter.release()
+
+    async def _analysis_events() -> AsyncIterator[str]:
         try:
             analysis = await run_in_threadpool(services.pipeline.answer, body.question)
             yield _event("answer", to_response(analysis))

@@ -18,7 +18,7 @@ def test_docs_are_served_outside_production(client: TestClient) -> None:
 
 
 def test_docs_are_hidden_in_production() -> None:
-    settings = Settings(_env_file=None, app_env="production", api_key="k")
+    settings = Settings(_env_file=None, app_env="production", api_key="k", daily_budget_usd=5)
     with TestClient(create_app(settings)) as client:
         assert client.get("/docs").status_code == 404
         assert client.get("/openapi.json").status_code == 404

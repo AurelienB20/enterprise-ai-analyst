@@ -21,6 +21,18 @@ export function backendConfig(): BackendConfig {
   };
 }
 
+/**
+ * The visitor's address, forwarded so the API limits each visitor rather than this
+ * server: the last X-Forwarded-For entry, written by the nearest proxy (Caddy).
+ */
+export function clientAddress(headers: Headers): string | undefined {
+  const entries = (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return entries.at(-1);
+}
+
 function jsonError(status: number, detail: string): Response {
   return Response.json({ detail }, { status });
 }
@@ -42,6 +54,8 @@ export async function forward(
   const headers = new Headers({ accept: "application/json" });
   if (body !== undefined) headers.set("content-type", "application/json");
   if (config.apiKey) headers.set("x-api-key", config.apiKey);
+  const client = clientAddress(request.headers);
+  if (client) headers.set("x-forwarded-for", client);
 
   let response: Response;
   try {
@@ -58,8 +72,10 @@ export async function forward(
   const passed = new Headers({
     "content-type": response.headers.get("content-type") ?? "application/json",
   });
-  const requestId = response.headers.get("x-request-id");
-  if (requestId) passed.set("x-request-id", requestId);
+  for (const name of ["x-request-id", "retry-after"]) {
+    const value = response.headers.get(name);
+    if (value) passed.set(name, value);
+  }
   return new Response(await response.text(), { status: response.status, headers: passed });
 }
 
@@ -79,6 +95,8 @@ export async function forwardStream(
   }
   const headers = new Headers({ accept: "text/event-stream", "content-type": "application/json" });
   if (config.apiKey) headers.set("x-api-key", config.apiKey);
+  const client = clientAddress(request.headers);
+  if (client) headers.set("x-forwarded-for", client);
   let response: Response;
   try {
     response = await fetchImpl(`${config.url}${path}`, {
@@ -93,10 +111,11 @@ export async function forwardStream(
   }
   const contentType = response.headers.get("content-type") ?? "application/json";
   if (!response.ok || !contentType.startsWith("text/event-stream")) {
-    return new Response(await response.text(), {
-      status: response.status,
-      headers: { "content-type": contentType },
-    });
+    // Limits (429, 503) come back as JSON, with their Retry-After.
+    const headers = new Headers({ "content-type": contentType });
+    const retryAfter = response.headers.get("retry-after");
+    if (retryAfter) headers.set("retry-after", retryAfter);
+    return new Response(await response.text(), { status: response.status, headers });
   }
   return new Response(response.body, {
     status: 200,

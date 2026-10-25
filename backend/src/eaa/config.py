@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     reader_database_url: SecretStr | None = None
     # The eaa_app role: the API's audit trail (schema app), nothing else.
     app_database_url: SecretStr | None = None
+    # Limits of /analyses (eaa.api.limits). The daily budget is required in production.
+    analyses_per_client_per_hour: int = Field(default=20, gt=0)
+    max_concurrent_analyses: int = Field(default=4, gt=0, le=64)
+    daily_budget_usd: float | None = Field(default=None, gt=0)
     query_timeout_ms: int = Field(default=5_000, gt=0, le=60_000)
     query_max_rows: int = Field(default=1_000, gt=0, le=100_000)
 
@@ -61,9 +65,11 @@ class Settings(BaseSettings):
     llm_cache_read_price_per_mtok: float = Field(default=0.2, ge=0)
 
     @model_validator(mode="after")
-    def _production_needs_an_api_key(self) -> Self:
+    def _production_needs_limits(self) -> Self:
         if self.app_env == "production" and self.api_key is None:
             raise ValueError("API_KEY is required in production")
+        if self.app_env == "production" and self.daily_budget_usd is None:
+            raise ValueError("DAILY_BUDGET_USD is required in production")
         return self
 
     def require_database_url(self) -> str:

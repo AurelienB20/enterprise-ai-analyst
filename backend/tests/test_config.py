@@ -17,6 +17,7 @@ def test_settings_are_read_from_the_environment(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("LOG_FORMAT", "json")
     monkeypatch.setenv("API_KEY", "a-long-random-key")
+    monkeypatch.setenv("DAILY_BUDGET_USD", "5")
 
     settings = Settings(_env_file=None)
 
@@ -31,9 +32,11 @@ def test_an_unknown_environment_is_rejected(monkeypatch: pytest.MonkeyPatch) -> 
         Settings(_env_file=None)
 
 
-def test_production_requires_an_api_key() -> None:
+def test_production_requires_an_api_key_and_a_budget() -> None:
     with pytest.raises(ValidationError, match="API_KEY is required"):
-        Settings(_env_file=None, app_env="production")
+        Settings(_env_file=None, app_env="production", daily_budget_usd=5)
+    with pytest.raises(ValidationError, match="DAILY_BUDGET_USD is required"):
+        Settings(_env_file=None, app_env="production", api_key="k")
 
 
 def test_a_missing_llm_model_fails_clearly() -> None:

@@ -56,6 +56,10 @@ class StubPipeline:
 class MemoryStore:
     def __init__(self) -> None:
         self.rows: dict[uuid.UUID, dict[str, Any]] = {}
+        self.spent = Decimal(0)
+
+    def spent_today(self) -> Decimal:
+        return self.spent
 
     def record(self, analysis: Analysis, correlation_id: str | None) -> None:
         self.rows[analysis.id] = {"id": analysis.id, "status": analysis.status, "cost_usd": 0}
@@ -172,3 +176,33 @@ def test_a_failure_in_the_stream_is_an_error_event(client: TestClient, stub: Stu
     events = parse_events(client.post("/analyses/stream", json={"question": "q?x"}).text)
 
     assert events == [("error", {"detail": "The analysis failed."})]
+
+
+def test_each_client_gets_a_limited_number_of_analyses(
+    stub: StubPipeline, store: MemoryStore
+) -> None:
+    with make_client(stub, store, analyses_per_client_per_hour=2) as client:
+        statuses = [
+            client.post("/analyses", json={"question": "Revenue?"}).status_code for _ in range(3)
+        ]
+        stream = client.post("/analyses/stream", json={"question": "Revenue?"})
+
+    assert statuses == [200, 200, 429]
+    assert stream.status_code == 429 and int(stream.headers["retry-after"]) > 0
+
+
+def test_the_daily_budget_stops_new_analyses(stub: StubPipeline, store: MemoryStore) -> None:
+    store.spent = Decimal("5.01")
+    with make_client(stub, store, daily_budget_usd=5) as client:
+        response = client.post("/analyses", json={"question": "Revenue?"})
+
+    assert response.status_code == 429
+    assert "budget" in response.json()["detail"]
+    assert stub.questions == []
+
+
+def test_slots_are_released_after_each_analysis(stub: StubPipeline, store: MemoryStore) -> None:
+    with make_client(stub, store, max_concurrent_analyses=1) as client:
+        for _ in range(3):
+            assert client.post("/analyses/stream", json={"question": "Revenue?"}).status_code == 200
+            assert client.post("/analyses", json={"question": "Revenue?"}).status_code == 200

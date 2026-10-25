@@ -6,6 +6,7 @@ counts, timings, tokens and cost. What is not: the result rows.
 
 import uuid
 from dataclasses import asdict
+from decimal import Decimal
 from typing import Any
 
 import psycopg
@@ -82,3 +83,12 @@ class AnalysisStore:
                 f"SELECT {', '.join(COLUMNS)} FROM app.analyses WHERE id = %s",  # noqa: S608
                 (analysis_id,),
             ).fetchone()
+
+    def spent_today(self) -> Decimal:
+        """Cost of the analyses recorded since midnight UTC."""
+        with psycopg.connect(self._url) as connection:
+            row = connection.execute(
+                "SELECT coalesce(sum(cost_usd), 0) FROM app.analyses "
+                "WHERE created_at >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'"
+            ).fetchone()
+        return Decimal(row[0]) if row else Decimal(0)

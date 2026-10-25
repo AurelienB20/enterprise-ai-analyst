@@ -13,6 +13,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from eaa import __version__
 from eaa.api import analyses, health
+from eaa.api.limits import ConcurrencyLimiter, RateLimiter
 from eaa.api.middleware import CorrelationIdMiddleware
 from eaa.api.security import require_api_key
 from eaa.config import Settings, get_settings
@@ -49,6 +50,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     )
     app.state.settings = settings
     app.state.services = services
+    app.state.rate_limiter = RateLimiter(settings.analyses_per_client_per_hour)
+    app.state.concurrency_limiter = ConcurrencyLimiter(settings.max_concurrent_analyses)
     app.add_middleware(CorrelationIdMiddleware)
     app.include_router(health.router)
     app.include_router(
@@ -59,5 +62,7 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
 
     if settings.api_key is None:
         logger.warning("API_KEY is not set: /analyses is open to anyone who can reach it")
+    if settings.daily_budget_usd is None:
+        logger.warning("DAILY_BUDGET_USD is not set: LLM spending is not capped")
     logger.info("Application created (env=%s)", settings.app_env)
     return app
