@@ -18,8 +18,10 @@ Method: [docs/evaluation.md](../../../docs/evaluation.md).
 | `retries-probe` | Replay of the 4 questions that needed a second proposal, with attempts logged | 4 | 100 % | $0.06 |
 | `explain-dev` | Milestone 0.7: a checked explanation after every answer (effort medium) | 29 dev | 100 %, 25/25 explanations verified | $1.02 |
 | `explain-low-sample` | Explanation at effort low, 8 of those questions | 8 | 100 %, 7/8 verified | $0.33 |
+| `explain-dev-capped` | Explanations with the 4,000-token ceiling of ADR 0011 | 29 dev | 100 %, 23/25 verified (1 withheld, 1 cut off) | $1.16 |
+| `sonnet-explain-sample` | Sonnet 5.5 with explanations, the same 8 questions | 8 | 100 %, 7/8 verified | $0.16 |
 
-Total spent on evaluation: about $3.75.
+Total spent on evaluation: about $5.10.
 
 ## What was learned
 
@@ -65,10 +67,18 @@ verified on the dev split, but the median latency went from 5 s to 14 s and the 
 question from $0.015 to $0.035. At effort low the explanations were less reliable (one of
 8 withheld) and not faster, so the default stays medium.
 
+**5. The ceiling bounds the cost; explanations vary between runs.** With the 4,000-token
+ceiling, the most expensive question cost $0.134 (a runaway correction had cost $0.34
+before). Verified explanations went from 25/25 to 23/25 between two runs of the same
+questions: one was withheld (unverified figure), one cut off by the ceiling. Either way
+no unchecked figure was shown. On 8 questions, Sonnet 5.5 verified 7, with a median of
+9.5 s and at most $0.025 per question: the strongest case so far for switching models.
+
 ## Next
 
 - Harder questions where the views do not hold the answer directly: cohorts, retention,
   periods defined in words ("since the summer"), questions that need a clarification.
 - The full-scale dataset (100,000 orders) for latency.
 - Repeat runs to measure variance: one run per configuration is one sample.
-- Re-run the explanations with the 4,000-token ceiling of ADR 0011.
+- Repeat runs per configuration: explanation quality varies from run to run.
+- A full Sonnet 5.5 run, explanations included, before deciding the default model.

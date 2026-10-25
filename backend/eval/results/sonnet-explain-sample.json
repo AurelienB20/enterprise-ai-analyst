@@ -1,0 +1,290 @@
+{
+  "config": {
+    "label": "sonnet-explain-sample",
+    "split": "all",
+    "model": "claude-sonnet-5-5",
+    "effort": "medium",
+    "explain_effort": "medium",
+    "max_attempts": 3,
+    "questions_version": 2,
+    "semantic_version": 1,
+    "dataset": {
+      "generator_version": "2",
+      "seed": 42,
+      "scale": "small",
+      "reference_date": "2026-09-30"
+    },
+    "commit": "c2a4c1d",
+    "date": "2026-10-25 11:53 UTC"
+  },
+  "summary": {
+    "questions": 8,
+    "accuracy": 1.0,
+    "execution_accuracy": 1.0,
+    "correct_refusal_rate": null,
+    "false_refusal_rate": 0.0,
+    "valid_sql_rate": 1.0,
+    "first_try_rate": 1.0,
+    "permission_violations": 0,
+    "explanations_verified_rate": 0.875,
+    "latency_p50_ms": 10419.6,
+    "latency_p95_ms": 22811.5,
+    "cost_total_usd": 0.1593,
+    "cost_mean_usd": 0.0199,
+    "by_split": {
+      "dev": 1.0
+    },
+    "by_category": {
+      "anomaly": 1.0,
+      "multi_step": 1.0,
+      "ranking": 1.0,
+      "revenue": 1.0,
+      "trend": 1.0
+    }
+  },
+  "statuses": {
+    "answered": 8
+  },
+  "questions": [
+    {
+      "id": "rev_by_quarter_2025",
+      "split": "dev",
+      "category": "trend",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "rows match",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 2,
+      "input_tokens": 986,
+      "output_tokens": 741,
+      "cache_read_tokens": 0,
+      "cost_usd": 0.024632,
+      "total_ms": 6530.2,
+      "executed_sql": "SELECT CAST(EXTRACT(QUARTER FROM invoice_date) AS INT) AS trimestre, ROUND(SUM(net_revenue), 2) AS chiffre_affaires_net FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-01-01' AS DATE) AND invoice_date < CAST('2026-01-01' AS DATE) GROUP BY 1 ORDER BY 1",
+      "error_kind": null,
+      "error": null,
+      "insight_status": "verified",
+      "insight_numbers": 12,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT CAST(EXTRACT(QUARTER FROM invoice_date) AS INT) AS trimestre, ROUND(SUM(net_revenue), 2) AS chiffre_affaires_net FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-01-01' AS DATE) AND invoice_date < CAST('2026-01-01' AS DATE) GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": "rev_by_region_2025",
+      "split": "dev",
+      "category": "revenue",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "rows match",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 2,
+      "input_tokens": 840,
+      "output_tokens": 741,
+      "cache_read_tokens": 0,
+      "cost_usd": 0.02434,
+      "total_ms": 6722.9,
+      "executed_sql": "SELECT customer_region AS region, ROUND(SUM(net_revenue), 2) AS chiffre_affaires_net FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-01-01' AS DATE) AND invoice_date < CAST('2026-01-01' AS DATE) GROUP BY customer_region ORDER BY chiffre_affaires_net DESC",
+      "error_kind": null,
+      "error": null,
+      "insight_status": "verified",
+      "insight_numbers": 15,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT customer_region AS region, ROUND(SUM(net_revenue), 2) AS chiffre_affaires_net FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-01-01' AS DATE) AND invoice_date < CAST('2026-01-01' AS DATE) GROUP BY customer_region ORDER BY chiffre_affaires_net DESC"
+        }
+      ]
+    },
+    {
+      "id": "ytd_growth",
+      "split": "dev",
+      "category": "trend",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "the first row holds the reference values",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 2,
+      "input_tokens": 820,
+      "output_tokens": 969,
+      "cache_read_tokens": 715,
+      "cost_usd": 0.024935,
+      "total_ms": 8661.4,
+      "executed_sql": "SELECT ROUND(SUM(net_revenue) FILTER(WHERE invoice_date BETWEEN CAST('2026-01-01' AS DATE) AND CAST('2026-09-30' AS DATE)), 2) AS ca_net_2026_jan_sep, ROUND(SUM(net_revenue) FILTER(WHERE invoice_date BETWEEN CAST('2025-01-01' AS DATE) AND CAST('2025-09-30' AS DATE)), 2) AS ca_net_2025_jan_sep, ROUND(SUM(net_revenue) FILTER(WHERE invoice_date BETWEEN CAST('2026-01-01' AS DATE) AND CAST('2026-09-30' AS DATE)) / NULLIF(SUM(net_revenue) FILTER(WHERE invoice_date BETWEEN CAST('2025-01-01' AS DATE) AND CAST('2025-09-30' AS DATE)), 0) - 1, 4) AS croissance_pct_ratio FROM analytics.sales_lines",
+      "error_kind": null,
+      "error": null,
+      "insight_status": "verified",
+      "insight_numbers": 7,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT ROUND(SUM(net_revenue) FILTER(WHERE invoice_date BETWEEN CAST('2026-01-01' AS DATE) AND CAST('2026-09-30' AS DATE)), 2) AS ca_net_2026_jan_sep, ROUND(SUM(net_revenue) FILTER(WHERE invoice_date BETWEEN CAST('2025-01-01' AS DATE) AND CAST('2025-09-30' AS DATE)), 2) AS ca_net_2025_jan_sep, ROUND(SUM(net_revenue) FILTER(WHERE invoice_date BETWEEN CAST('2026-01-01' AS DATE) AND CAST('2026-09-30' AS DATE)) / NULLIF(SUM(net_revenue) FILTER(WHERE invoice_date BETWEEN CAST('2025-01-01' AS DATE) AND CAST('2025-09-30' AS DATE)), 0) - 1, 4) AS croissance_pct_ratio FROM analytics.sales_lines"
+        }
+      ]
+    },
+    {
+      "id": "top5_customers_2025",
+      "split": "dev",
+      "category": "ranking",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "rows match",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 3,
+      "input_tokens": 2988,
+      "output_tokens": 1457,
+      "cache_read_tokens": 6815,
+      "cost_usd": 0.021909,
+      "total_ms": 10419.6,
+      "executed_sql": "SELECT s.customer_id, c.customer_name, ROUND(SUM(s.net_revenue), 2) AS chiffre_affaires_net FROM analytics.sales_lines AS s JOIN analytics.customers AS c ON c.customer_id = s.customer_id WHERE s.invoice_date >= CAST('2025-01-01' AS DATE) AND s.invoice_date < CAST('2026-01-01' AS DATE) GROUP BY s.customer_id, c.customer_name ORDER BY SUM(s.net_revenue) DESC LIMIT 5",
+      "error_kind": null,
+      "error": null,
+      "insight_status": "fallback",
+      "insight_numbers": 11,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT s.customer_id, c.customer_name, ROUND(SUM(s.net_revenue), 2) AS chiffre_affaires_net FROM analytics.sales_lines AS s JOIN analytics.customers AS c ON c.customer_id = s.customer_id WHERE s.invoice_date >= CAST('2025-01-01' AS DATE) AND s.invoice_date < CAST('2026-01-01' AS DATE) GROUP BY s.customer_id, c.customer_name ORDER BY SUM(s.net_revenue) DESC LIMIT 5"
+        }
+      ]
+    },
+    {
+      "id": "category_drop",
+      "split": "dev",
+      "category": "anomaly",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "the first row holds the reference values",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 2,
+      "input_tokens": 2121,
+      "output_tokens": 1555,
+      "cache_read_tokens": 6100,
+      "cost_usd": 0.021012,
+      "total_ms": 10768.1,
+      "executed_sql": "SELECT category_name, ROUND(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-07-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE)), 2) AS ca_net_t3_2026, ROUND(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date <= CAST('2026-06-30' AS DATE)), 2) AS ca_net_t2_2026, ROUND(COALESCE(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-07-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE)), 0) - COALESCE(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date <= CAST('2026-06-30' AS DATE)), 0), 2) AS variation_eur, ROUND((SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-07-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE))) / NULLIF(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date <= CAST('2026-06-30' AS DATE)), 0) - 1, 4) AS variation_pct FROM analytics.sales_lines WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE) GROUP BY category_name ORDER BY variation_eur ASC LIMIT 5",
+      "error_kind": null,
+      "error": null,
+      "insight_status": "verified",
+      "insight_numbers": 15,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT category_name, ROUND(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-07-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE)), 2) AS ca_net_t3_2026, ROUND(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date <= CAST('2026-06-30' AS DATE)), 2) AS ca_net_t2_2026, ROUND(COALESCE(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-07-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE)), 0) - COALESCE(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date <= CAST('2026-06-30' AS DATE)), 0), 2) AS variation_eur, ROUND((SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-07-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE))) / NULLIF(SUM(net_revenue) FILTER(WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date <= CAST('2026-06-30' AS DATE)), 0) - 1, 4) AS variation_pct FROM analytics.sales_lines WHERE invoice_date >= CAST('2026-04-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE) GROUP BY category_name ORDER BY variation_eur ASC LIMIT 5"
+        }
+      ]
+    },
+    {
+      "id": "lowest_margin_product",
+      "split": "dev",
+      "category": "anomaly",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "the first row holds the reference values",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 3,
+      "input_tokens": 1492,
+      "output_tokens": 1347,
+      "cache_read_tokens": 6815,
+      "cost_usd": 0.017817,
+      "total_ms": 10888.9,
+      "executed_sql": "SELECT s.product_id, p.product_name, p.sku, ROUND(SUM(s.gross_margin) / NULLIF(SUM(s.net_revenue), 0), 4) AS gross_margin_rate, ROUND(SUM(s.net_revenue), 2) AS net_revenue FROM analytics.sales_lines AS s JOIN analytics.products AS p ON p.product_id = s.product_id GROUP BY s.product_id, p.product_name, p.sku HAVING SUM(s.net_revenue) <> 0 ORDER BY SUM(s.gross_margin) / SUM(s.net_revenue) ASC LIMIT 1",
+      "error_kind": null,
+      "error": null,
+      "insight_status": "verified",
+      "insight_numbers": 4,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT s.product_id, p.product_name, p.sku, ROUND(SUM(s.gross_margin) / NULLIF(SUM(s.net_revenue), 0), 4) AS gross_margin_rate, ROUND(SUM(s.net_revenue), 2) AS net_revenue FROM analytics.sales_lines AS s JOIN analytics.products AS p ON p.product_id = s.product_id GROUP BY s.product_id, p.product_name, p.sku HAVING SUM(s.net_revenue) <> 0 ORDER BY SUM(s.gross_margin) / SUM(s.net_revenue) ASC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": "largest_overdue_customer",
+      "split": "dev",
+      "category": "anomaly",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "the first row holds the reference values",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 2,
+      "input_tokens": 534,
+      "output_tokens": 789,
+      "cache_read_tokens": 6100,
+      "cost_usd": 0.010178,
+      "total_ms": 7166.1,
+      "executed_sql": "SELECT i.customer_id, c.customer_name, ROUND(SUM(i.outstanding_amount), 2) AS overdue_amount_eur, COUNT(*) AS overdue_invoices FROM analytics.invoices AS i JOIN analytics.customers AS c ON c.customer_id = i.customer_id WHERE i.is_overdue GROUP BY i.customer_id, c.customer_name ORDER BY SUM(i.outstanding_amount) DESC LIMIT 1",
+      "error_kind": null,
+      "error": null,
+      "insight_status": "verified",
+      "insight_numbers": 5,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "SELECT i.customer_id, c.customer_name, ROUND(SUM(i.outstanding_amount), 2) AS overdue_amount_eur, COUNT(*) AS overdue_invoices FROM analytics.invoices AS i JOIN analytics.customers AS c ON c.customer_id = i.customer_id WHERE i.is_overdue GROUP BY i.customer_id, c.customer_name ORDER BY SUM(i.outstanding_amount) DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": "qoq_growth_2026",
+      "split": "dev",
+      "category": "multi_step",
+      "expect": "answer",
+      "status": "answered",
+      "correct": true,
+      "detail": "rows match",
+      "declined_reason": null,
+      "attempts": 1,
+      "first_try": true,
+      "llm_calls": 2,
+      "input_tokens": 1498,
+      "output_tokens": 1027,
+      "cache_read_tokens": 6100,
+      "cost_usd": 0.014486,
+      "total_ms": 22811.5,
+      "executed_sql": "WITH q AS (SELECT CAST(DATE_TRUNC('QUARTER', invoice_date) AS DATE) AS quarter_start, SUM(net_revenue) AS rev FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-10-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE) GROUP BY 1) SELECT quarter_start, 'Q' || CAST(EXTRACT(QUARTER FROM quarter_start) AS INT) || ' ' || CAST(EXTRACT(YEAR FROM quarter_start) AS INT) AS quarter, ROUND(rev, 2) AS net_revenue, ROUND(LAG(rev) OVER (ORDER BY quarter_start), 2) AS previous_quarter_net_revenue, ROUND((rev / NULLIF(LAG(rev) OVER (ORDER BY quarter_start), 0) - 1) * 100, 2) AS growth_pct FROM q ORDER BY quarter_start",
+      "error_kind": null,
+      "error": null,
+      "insight_status": "verified",
+      "insight_numbers": 11,
+      "attempt_log": [
+        {
+          "outcome": "accepted",
+          "message": null,
+          "sql": "WITH q AS (SELECT CAST(DATE_TRUNC('QUARTER', invoice_date) AS DATE) AS quarter_start, SUM(net_revenue) AS rev FROM analytics.sales_lines WHERE invoice_date >= CAST('2025-10-01' AS DATE) AND invoice_date <= CAST('2026-09-30' AS DATE) GROUP BY 1) SELECT quarter_start, 'Q' || CAST(EXTRACT(QUARTER FROM quarter_start) AS INT) || ' ' || CAST(EXTRACT(YEAR FROM quarter_start) AS INT) AS quarter, ROUND(rev, 2) AS net_revenue, ROUND(LAG(rev) OVER (ORDER BY quarter_start), 2) AS previous_quarter_net_revenue, ROUND((rev / NULLIF(LAG(rev) OVER (ORDER BY quarter_start), 0) - 1) * 100, 2) AS growth_pct FROM q ORDER BY quarter_start"
+        }
+      ]
+    }
+  ]
+}
