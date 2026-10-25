@@ -1,12 +1,13 @@
 """Application settings, read from environment variables and an optional ``.env`` file.
 
-Settings only grow when a milestone needs them: database URLs arrive with 0.1, the
-model ID and API key with 0.4. No model ID is hard-coded anywhere.
+Settings only grow when a milestone needs them: the model ID and API key arrive with
+0.4. No model ID is hard-coded anywhere.
 """
 
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AppEnv = Literal["development", "test", "production"]
@@ -20,6 +21,15 @@ class Settings(BaseSettings):
     app_env: AppEnv = "development"
     log_level: LogLevel = "INFO"
     log_format: LogFormat = "text"
+
+    # libpq form (postgresql://user:password@host:port/db) of the owner role, which runs
+    # migrations and loads the synthetic data. Never used to run generated SQL.
+    database_url: SecretStr | None = None
+
+    def require_database_url(self) -> str:
+        if self.database_url is None:
+            raise RuntimeError("DATABASE_URL is not set (see backend/.env.example)")
+        return self.database_url.get_secret_value()
 
 
 @lru_cache

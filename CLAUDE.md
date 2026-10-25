@@ -16,6 +16,8 @@ Core principle: **the LLM proposes, the backend verifies, the database enforces 
 1. **Never destroy data.** No `DROP DATABASE`, `DROP SCHEMA`, `TRUNCATE` on a persistent
    database, no deletion of Docker volumes or database backups, without explicit approval
    from the owner. Ask before any destructive operation, even in development.
+   This includes `python -m eaa.synthetic --replace` and `alembic downgrade` on `eaa`.
+   Only `eaa_test` is disposable: the `-m db` tests migrate it down and up. Iterate there.
 2. **No paid API call without approval.** Tests mock the LLM. Tests that call real
    services carry the `live` marker and are only run when the owner agrees. Say the
    expected cost before asking.
@@ -41,8 +43,9 @@ deployment only. **Do not leave Docker running.**
   `wsl -d Debian -u root -- service postgresql start|stop|status`.
 - **The WSL cluster was created in SQL_ASCII.** Create every database of this project in
   UTF8: `CREATE DATABASE ... ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C.utf8' LC_CTYPE 'C.utf8'`.
-  Roles and databases are created as the `postgres` superuser:
-  `wsl -d Debian -u postgres -- psql ...`.
+  Roles and databases are created as the `postgres` superuser, by the idempotent
+  `backend/scripts/create_local_databases.sql` (usage in its header).
+- Local URLs and the generated owner password are in `backend/.env` (ignored by Git).
 - Stop every server you started (uvicorn, `next dev`, PostgreSQL if you started it)
   at the end of a session.
 

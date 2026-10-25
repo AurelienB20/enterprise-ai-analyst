@@ -21,6 +21,23 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      # The database tests migrate this disposable eaa_test database up and down.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: eaa_owner
+          POSTGRES_PASSWORD: eaa_owner
+          POSTGRES_DB: eaa_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eaa_owner -d eaa_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      TEST_DATABASE_URL: postgresql://eaa_owner:eaa_owner@127.0.0.1:5432/eaa_test
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.2
@@ -37,3 +54,5 @@ jobs:
         run: uv run mypy
       - name: Unit tests
         run: uv run pytest -W error
+      - name: Database tests (PostgreSQL 16)
+        run: uv run pytest -W error -m db
