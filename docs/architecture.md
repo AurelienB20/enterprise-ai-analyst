@@ -77,8 +77,9 @@ has a `pii` column. See [semantic-layer.md](semantic-layer.md) and ADR 0004.
 | SQL generation | Question, view and column descriptions, metric definitions, reference date | Data rows, personal data |
 | Explanation (0.7) | Aggregated results after privacy controls, computed figures | Columns classified `pii`, mapping tables |
 
-Tests will assert these lists (milestone 0.6). Logs hold IDs, counts and durations,
-never query results or personal data.
+The full table, with what is masked or pseudonymised, is in [privacy.md](privacy.md);
+tests assert it. Logs hold IDs, counts and durations, never query results or personal
+data.
 
 ## Code layout
 
@@ -106,7 +107,7 @@ backend/src/eaa/
 | 0.3 | SQL validator, read-only executor, adversarial tests without LLM | Each attack blocked by at least two layers |
 | 0.4 | Text-to-SQL with Claude tool calling, `POST /analyses`: first end-to-end MVP | Works end to end; LLM mocked in CI |
 | 0.5 | Evaluation: 53 questions with reference SQL, result comparison, dev/test split | A measured baseline (done: docs/evaluation.md) |
-| 0.6 | Privacy engine: pseudonymisation, minimum group size, tests on provider payloads | A test fails if a `pii` column reaches an LLM call |
+| 0.6 | Privacy: question masking, column lineage, pseudonymised provider payload | No company name reaches the payload (done: docs/privacy.md) |
 | 0.7 | Analysis: deterministic calculations, explanations, number check | No unchecked figure is shown |
 | 0.8 | Next.js frontend, Recharts, Analysis Trace | Checked in a browser |
 | 0.9 | Production readiness: authentication, Docker, observability, deployment | Smoke test on a production-like stack |

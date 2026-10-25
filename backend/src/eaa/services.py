@@ -10,6 +10,7 @@ from eaa.execution.executor import ExecutionLimits, ReadOnlyExecutor
 from eaa.llm.prompt import render_system_prompt
 from eaa.llm.sql_generator import ClaudeSQLGenerator, GeneratorConfig
 from eaa.orchestrator.pipeline import AnalysisPipeline, Prices
+from eaa.privacy.lineage import LineageResolver
 from eaa.semantic.model import load
 from eaa.sql_security.validator import SQLValidator
 from eaa.storage.analyses import AnalysisStore
@@ -55,6 +56,7 @@ def build_pipeline(settings: Settings) -> AnalysisPipeline:
             cache_read=settings.llm_cache_read_price_per_mtok,
         ),
         max_attempts=settings.llm_max_attempts,
+        lineage=LineageResolver(model),
     )
 
 

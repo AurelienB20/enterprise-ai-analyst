@@ -2,7 +2,7 @@
 
 **Ask questions about your business data. Get trusted insights, secure SQL and interactive visualizations.**
 
-> Status: early development (milestone 0.5: evaluation). A question becomes validated SQL,
+> Status: early development (milestone 0.6: privacy controls). A question becomes validated SQL,
 > runs read-only and comes back with its full trace. No interface yet.
 
 **Measured on 53 business questions** (reference SQL, result comparison, 8 injected
@@ -33,6 +33,7 @@ It is not a raw Text-to-SQL chatbot. Three ideas drive the design:
 - [Semantic layer: business definitions](docs/semantic-layer.md)
 - [Security of generated SQL: layers, attack corpus, residual risks](docs/security.md)
 - [Evaluation: method](docs/evaluation.md) and [results](backend/eval/results/README.md)
+- [Privacy by design: data flows, pseudonymisation, re-identification risks](docs/privacy.md)
 - [Architecture decision records](docs/adr/)
 
 ## Run locally

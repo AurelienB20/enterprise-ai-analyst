@@ -5,6 +5,10 @@ is the only place where the three meet, as a plain loop: at most ``max_attempts`
 proposals, each validated and run; a rejection goes back to the model with a reason it
 can act on. No result row is ever sent to the model at this stage.
 
+Personal data typed into the question (emails, phone numbers...) is masked before the
+question reaches the model or the audit trail. Each result column gets the
+classification of the view columns it comes from (eaa.privacy.lineage).
+
 Database error messages go back to the model only when they cannot carry a data value:
 a conversion error ("invalid input syntax for type integer: <value>") is replaced by a
 generic message, so a value from the views never travels to the provider this way.
@@ -29,6 +33,8 @@ from eaa.llm.sql_generator import (
     QueryProposal,
     Usage,
 )
+from eaa.privacy.lineage import ColumnLineage, LineageResolver
+from eaa.privacy.pii import mask_personal_data
 from eaa.sql_security.validator import SQLRejectedError, SQLValidator, ValidatedQuery
 
 logger = logging.getLogger(__name__)
@@ -92,6 +98,9 @@ class Analysis:
     total_ms: float = 0.0
     usage: Usage = field(default_factory=Usage)
     cost_usd: float = 0.0
+    # Kinds of personal data masked in the question ("EMAIL", "PHONE"...).
+    masked_personal_data: tuple[str, ...] = ()
+    lineage: tuple[ColumnLineage, ...] = ()
 
 
 def feedback_for_rejection(error: SQLRejectedError) -> str:
@@ -128,8 +137,10 @@ class AnalysisPipeline:
         model: str,
         prices: Prices,
         max_attempts: int = 3,
+        lineage: LineageResolver | None = None,
     ) -> None:
         self.generator = generator
+        self.lineage = lineage
         self.validator = validator
         self.executor = executor
         self.model = model
@@ -137,9 +148,12 @@ class AnalysisPipeline:
         self.max_attempts = max_attempts
 
     def run(self, question: str) -> Analysis:
-        analysis = Analysis(question=question, model=self.model)
+        masked = mask_personal_data(question)
+        analysis = Analysis(
+            question=masked.text, model=self.model, masked_personal_data=masked.kinds
+        )
         started = time.perf_counter()
-        conversation = self.generator.start(question)
+        conversation = self.generator.start(masked.text)
         try:
             self._loop(conversation, analysis)
         except LLMError as error:
@@ -206,5 +220,7 @@ class AnalysisPipeline:
             analysis.status = "answered"
             analysis.executed = validated
             analysis.result = result
+            if self.lineage is not None:
+                analysis.lineage = self.lineage.resolve(validated.sql)
             analysis.error_kind = analysis.error_message = None
             return

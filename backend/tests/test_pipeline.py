@@ -13,6 +13,7 @@ from eaa.execution.executor import (
 )
 from eaa.llm.sql_generator import Declined, LLMError, Proposal, QueryProposal, Usage
 from eaa.orchestrator.pipeline import AnalysisPipeline, Prices
+from eaa.privacy.lineage import LineageResolver
 from eaa.semantic.model import load
 from eaa.sql_security.validator import SQLValidator, ValidatedQuery
 
@@ -50,8 +51,10 @@ class ScriptedConversation:
 class ScriptedGenerator:
     def __init__(self, *replies: Proposal | Exception) -> None:
         self.conversation = ScriptedConversation(list(replies))
+        self.questions: list[str] = []
 
     def start(self, question: str) -> ScriptedConversation:
+        self.questions.append(question)
         return self.conversation
 
 
@@ -197,3 +200,35 @@ def test_cache_reads_and_writes_are_priced() -> None:
 
     expected = (100 * 4 + 10_000 * 0.2 + 1_000 * 4 * 1.25 + 50 * 20) / 1e6
     assert PRICES.cost(usage) == pytest.approx(expected)
+
+
+def test_personal_data_is_masked_before_the_model_sees_the_question(
+    validator: SQLValidator,
+) -> None:
+    generator = ScriptedGenerator(proposal(GOOD_SQL))
+
+    analysis = pipeline(validator, generator, FakeExecutor(RESULT)).run(
+        "Revenue of the customer of jean.dupont@acme.example, phone +33 6 12 34 56 78?"
+    )
+
+    assert generator.questions == ["Revenue of the customer of [EMAIL], phone [PHONE]?"]
+    # The audit trail stores the masked question too.
+    assert analysis.question == generator.questions[0]
+    assert analysis.masked_personal_data == ("EMAIL", "PHONE")
+
+
+def test_result_columns_get_their_classification(validator: SQLValidator) -> None:
+    sql = (
+        "SELECT c.customer_name, SUM(s.net_revenue) AS revenue FROM sales_lines s "
+        "JOIN customers c ON c.customer_id = s.customer_id GROUP BY 1"
+    )
+    analysis = AnalysisPipeline(
+        ScriptedGenerator(proposal(sql)),
+        validator,
+        FakeExecutor(RESULT),
+        model="test-model",
+        prices=PRICES,
+        lineage=LineageResolver(load()),
+    ).run("q")
+
+    assert [c.classification for c in analysis.lineage] == ["confidential", "internal"]

@@ -102,11 +102,14 @@ def run(args: argparse.Namespace) -> int:
     }
     result = report(config, scores)
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    # newline="\n": the reports are committed, and Git keeps LF (.gitattributes).
     (RESULTS_DIR / f"{args.label}.json").write_text(
-        json.dumps(result, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8"
+        json.dumps(result, indent=2, ensure_ascii=False, default=str) + "\n",
+        encoding="utf-8",
+        newline="\n",
     )
     markdown = render_report(result)
-    (RESULTS_DIR / f"{args.label}.md").write_text(markdown, encoding="utf-8")
+    (RESULTS_DIR / f"{args.label}.md").write_text(markdown, encoding="utf-8", newline="\n")
     print(markdown.split("\n## Questions")[0])
     return 0
 

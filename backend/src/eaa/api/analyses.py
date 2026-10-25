@@ -34,6 +34,10 @@ class AttemptOut(BaseModel):
 class ColumnOut(BaseModel):
     name: str
     type: str
+    classification: str | None = Field(
+        None, description="public, internal, confidential: from the view columns it uses."
+    )
+    sources: list[str] = Field(default_factory=list, description="view.column it comes from")
 
 
 class ResultOut(BaseModel):
@@ -71,6 +75,9 @@ class AnalysisResponse(BaseModel):
     views: list[str] = Field(default_factory=list)
     result: ResultOut | None = None
     attempts: list[AttemptOut]
+    masked_personal_data: list[str] = Field(
+        default_factory=list, description="Kinds of personal data masked in the question."
+    )
     declined_reason: str | None = None
     error: str | None = None
     timings: TimingsOut
@@ -83,6 +90,21 @@ def json_value(value: Any) -> Any:
     if isinstance(value, (date, datetime)):
         return value.isoformat()
     return value
+
+
+def _columns(analysis: Analysis) -> list[ColumnOut]:
+    if analysis.result is None:
+        return []
+    lineage = analysis.lineage if len(analysis.lineage) == len(analysis.result.columns) else ()
+    return [
+        ColumnOut(
+            name=column.name,
+            type=column.type_name,
+            classification=lineage[i].classification if lineage else None,
+            sources=list(lineage[i].sources) if lineage else [],
+        )
+        for i, column in enumerate(analysis.result.columns)
+    ]
 
 
 def to_response(analysis: Analysis) -> AnalysisResponse:
@@ -99,7 +121,7 @@ def to_response(analysis: Analysis) -> AnalysisResponse:
         executed_sql=analysis.executed.sql if analysis.executed else None,
         views=sorted(analysis.executed.views) if analysis.executed else [],
         result=ResultOut(
-            columns=[ColumnOut(name=c.name, type=c.type_name) for c in result.columns],
+            columns=_columns(analysis),
             rows=[[json_value(v) for v in row] for row in result.rows],
             row_count=len(result.rows),
             truncated=result.truncated,
@@ -109,6 +131,7 @@ def to_response(analysis: Analysis) -> AnalysisResponse:
         attempts=[
             AttemptOut(sql=a.sql, outcome=a.outcome, message=a.message) for a in analysis.attempts
         ],
+        masked_personal_data=list(analysis.masked_personal_data),
         declined_reason=analysis.declined.reason if analysis.declined else None,
         error=analysis.declined.message if analysis.declined else analysis.error_message,
         timings=TimingsOut(
