@@ -34,7 +34,8 @@ That loop does not need an agent framework.
 
 ## Defense in depth for generated SQL
 
-Each layer must stop an attack on its own; tests check each layer separately.
+Each layer is tested separately; [security.md](security.md) has the attack corpus, which
+layer stops what, and the residual risks.
 
 1. **Validator** (milestone 0.3). Parses with SQLGlot, walks the whole tree (CTEs,
    subqueries, `LATERAL`, set operations) and accepts only a single `SELECT`/`WITH`
