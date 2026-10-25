@@ -28,6 +28,7 @@ class DatabaseTestSettings(BaseSettings):
 
     test_database_url: SecretStr | None = None
     test_reader_database_url: SecretStr | None = None
+    test_app_database_url: SecretStr | None = None
 
 
 SALES_TABLES = tuple(TABLE_COLUMNS)
@@ -96,3 +97,11 @@ def reader(reader_database_url: str) -> Iterator[psycopg.Connection]:
     with psycopg.connect(reader_database_url) as conn:
         yield conn
         conn.rollback()
+
+
+@pytest.fixture(scope="session")
+def app_database_url(migrated_database: str) -> str:
+    url = DatabaseTestSettings().test_app_database_url
+    if url is None:
+        pytest.fail("TEST_APP_DATABASE_URL is not set (see backend/.env.example)")
+    return url.get_secret_value()

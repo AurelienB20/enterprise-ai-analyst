@@ -54,10 +54,11 @@ class QueryResult:
 class ExecutionError(Exception):
     """The database refused or failed the query. ``message`` is safe to show."""
 
-    def __init__(self, kind: str, message: str) -> None:
+    def __init__(self, kind: str, message: str, sqlstate: str | None = None) -> None:
         super().__init__(f"{kind}: {message}")
         self.kind = kind
         self.message = message
+        self.sqlstate = sqlstate
 
 
 class QueryTimeoutError(ExecutionError):
@@ -104,7 +105,7 @@ class ReadOnlyExecutor:
             raise PermissionDeniedError from None
         except psycopg.Error as error:
             message = error.diag.message_primary or type(error).__name__
-            raise ExecutionError("database_error", message) from None
+            raise ExecutionError("database_error", message, error.sqlstate) from None
 
     def _run_in_transaction(
         self, connection: psycopg.Connection, statement: str, started: float

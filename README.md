@@ -2,8 +2,8 @@
 
 **Ask questions about your business data. Get trusted insights, secure SQL and interactive visualizations.**
 
-> Status: early development (milestone 0.3: SQL security engine). SQL can be validated and
-> run read-only; natural-language questions arrive with milestone 0.4.
+> Status: early development (milestone 0.4: first end-to-end pipeline). A question becomes
+> validated SQL, runs read-only and comes back with its full trace. No interface yet.
 
 Enterprise AI Analyst turns a business question such as *"Which 10 customers' revenue dropped
 the most this quarter?"* into a SQL query, checks it, runs it read-only on a synthetic
@@ -38,22 +38,27 @@ uv sync
 cp .env.example .env        # then set the passwords
 # as the PostgreSQL superuser, once: the roles and the eaa / eaa_test databases
 psql -v ON_ERROR_STOP=1 -v owner_password=... -f scripts/create_local_databases.sql
-psql -v ON_ERROR_STOP=1 -v reader_password=... -f scripts/create_reader_role.sql
+psql -v ON_ERROR_STOP=1 -v reader_password=... -v app_password=... -f scripts/create_roles.sql
 uv run alembic upgrade head
 uv run python -m eaa.synthetic --scale small --seed 42
-uv run python -m eaa.execution "SELECT region, COUNT(*) FROM customers GROUP BY 1"
+uv run python -m eaa.execution "SELECT region, COUNT(*) FROM customers GROUP BY 1"   # no LLM
+uv run python -m eaa.orchestrator "Quel est le chiffre d'affaires du mois dernier ?" # calls Claude
 uv run uvicorn eaa.main:create_app --factory --reload
 ```
 
-Then open http://127.0.0.1:8000/health or http://127.0.0.1:8000/docs.
+Then open http://127.0.0.1:8000/docs and try `POST /analyses` with
+`{"question": "Which category dropped the most this quarter?"}`. The response carries the
+SQL that the model proposed, the SQL that actually ran, every rejected attempt, the
+assumptions, the rows, timings, tokens and cost.
 
 ## Checks
 
 ```
 cd backend
 uv run ruff format --check . && uv run ruff check . && uv run mypy
-uv run pytest            # unit tests
-uv run pytest -m db      # database tests, against TEST_DATABASE_URL (a disposable *_test database)
+uv run pytest                        # unit tests, the LLM is simulated
+uv run pytest -m "db and not live"   # database tests, against a disposable *_test database
+uv run pytest -m live -s             # real Claude calls (about $0.10): only on purpose
 ```
 
 ## License

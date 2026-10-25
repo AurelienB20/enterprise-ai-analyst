@@ -74,6 +74,14 @@ stop it on its own:
 29 attacks are stopped by the database on its own (`tests/db/test_executor.py` runs them
 with the validator skipped); 25 depend on the validator only.
 
+## What goes back to the model
+
+When a query is rejected or fails, the reason goes back to the model so it can correct
+itself. Validator messages name the construct, never data. Database messages go back
+as they are, except data exceptions (SQLSTATE class 22), whose text can quote a value
+from the views: those are replaced by a generic message (`tests/test_pipeline.py`).
+A permission error is never sent back nor retried.
+
 ## Residual risks, stated plainly
 
 - **The validator alone stands against**: reading catalogs (they reveal table and column

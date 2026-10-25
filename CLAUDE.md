@@ -57,7 +57,9 @@ From `backend/`:
 uv run ruff format --check .
 uv run ruff check .
 uv run mypy
-uv run pytest            # unit tests; add -m db for database tests, never -m live without approval
+uv run pytest                        # unit tests
+uv run pytest -m "db and not live"   # database tests (eaa_test)
+# never -m live without approval: it calls Claude and costs money
 ```
 
 ## Pitfalls on this machine

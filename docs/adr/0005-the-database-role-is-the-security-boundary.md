@@ -28,7 +28,7 @@ Generated SQL runs as `eaa_reader`, a role that PostgreSQL itself restricts:
 The SQL validator (milestone 0.3) comes in front, to reject early and explain why. It is
 not the boundary.
 
-Roles belong to the cluster, so `scripts/create_reader_role.sql` creates the role (as
+Roles belong to the cluster, so `scripts/create_roles.sql` creates the role (as
 superuser); the Alembic migration grants it rights in the database.
 
 ## Consequences

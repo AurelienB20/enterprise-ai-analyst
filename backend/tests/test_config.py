@@ -16,6 +16,7 @@ def test_defaults_are_safe_for_local_development() -> None:
 def test_settings_are_read_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("APP_ENV", "production")
     monkeypatch.setenv("LOG_FORMAT", "json")
+    monkeypatch.setenv("API_KEY", "a-long-random-key")
 
     settings = Settings(_env_file=None)
 
@@ -28,6 +29,16 @@ def test_an_unknown_environment_is_rejected(monkeypatch: pytest.MonkeyPatch) -> 
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_production_requires_an_api_key() -> None:
+    with pytest.raises(ValidationError, match="API_KEY is required"):
+        Settings(_env_file=None, app_env="production")
+
+
+def test_a_missing_llm_model_fails_clearly() -> None:
+    with pytest.raises(RuntimeError, match="LLM_MODEL"):
+        Settings(_env_file=None).require_llm_model()
 
 
 def test_a_missing_database_url_fails_clearly() -> None:

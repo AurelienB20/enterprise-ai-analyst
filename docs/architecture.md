@@ -16,9 +16,9 @@ never trusts the output of a probabilistic one.
 ```text
 Question
   -> Authorization                    who asks, what they may see            (0.9)
-  -> Context selection                views, columns, metric definitions      (0.4)
+  -> Context selection                the whole semantic model, cached        (0.4)
                                       deterministic; no data rows
-  -> LLM: submit_sql tool call        {sql, tables, assumptions, ambiguities} (0.4)
+  -> LLM: submit_query / cannot_answer strict tool calls (ADR 0007)          (0.4)
   -> SQL validator (SQLGlot)          one SELECT, allowlisted views/functions (0.3)
   -> Read-only executor               READ ONLY transaction, timeouts, limit  (0.3)
        under the eaa_reader role      SELECT on analytics views only
@@ -29,8 +29,9 @@ Question
   -> Answer + Analysis Trace           audit log without personal data         (0.4+)
 ```
 
-At most one retry: if the validator rejects a query, its error goes back to the LLM once.
-That loop does not need an agent framework.
+At most three proposals: a validator rejection or a database error goes back to the LLM
+as an error tool result, and it corrects its query. That loop does not need an agent
+framework (ADR 0007).
 
 ## Defense in depth for generated SQL
 
