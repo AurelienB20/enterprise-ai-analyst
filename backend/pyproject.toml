@@ -1,0 +1,50 @@
+[project]
+name = "enterprise-ai-analyst"
+version = "0.0.1"
+description = "Secure, privacy-aware conversational analytics over enterprise data."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162.0",
+    "pydantic-settings>=2.16.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "eaa"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# assert is how pytest checks things.
+"tests/**" = ["S101"]
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+files = ["src", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# faulthandler is disabled: on Windows it prints harmless, already-handled errors.
+addopts = "-ra --strict-markers -p no:faulthandler -m 'not live and not db'"
+markers = [
+    "live: calls real external services such as the Anthropic API (opt-in: -m live)",
+    "db: needs the local PostgreSQL database (opt-in: -m db)",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]

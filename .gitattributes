@@ -1,0 +1,2 @@
+# LF everywhere, whatever the platform: shell scripts and SQL must run unchanged in Linux.
+* text=auto eol=lf
