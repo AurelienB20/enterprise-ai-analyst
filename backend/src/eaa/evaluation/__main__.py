@@ -54,12 +54,16 @@ def _settings(args: argparse.Namespace) -> Settings:
         if url is None:
             raise SystemExit("TEST_READER_DATABASE_URL is not set")
         overrides["reader_database_url"] = url
-    for option in ("model", "effort", "max_attempts", "input_price", "output_price", "cache_price"):
+    for option in (
+        "model", "effort", "explain_effort", "max_attempts", "input_price", "output_price",
+        "cache_price",
+    ):  # fmt: skip
         value = getattr(args, option)
         if value is not None:
             key = {
                 "model": "llm_model",
                 "effort": "llm_effort",
+                "explain_effort": "explain_effort",
                 "max_attempts": "llm_max_attempts",
                 "input_price": "llm_input_price_per_mtok",
                 "output_price": "llm_output_price_per_mtok",
@@ -88,6 +92,7 @@ def run(args: argparse.Namespace) -> int:
         "split": args.split,
         "model": settings.llm_model,
         "effort": settings.llm_effort,
+        "explain_effort": settings.explain_effort if settings.explain_results else None,
         "max_attempts": settings.llm_max_attempts,
         "questions_version": question_set.version,
         "semantic_version": load_model().version,
@@ -143,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
     run_parser.add_argument("--workers", type=int, default=4)
     run_parser.add_argument("--model")
     run_parser.add_argument("--effort", choices=get_args(Effort))
+    run_parser.add_argument("--explain-effort", choices=get_args(Effort))
     run_parser.add_argument("--max-attempts", type=int)
     run_parser.add_argument("--input-price", type=float)
     run_parser.add_argument("--output-price", type=float)

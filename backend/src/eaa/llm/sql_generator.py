@@ -13,18 +13,22 @@ Server-side fallbacks are on: if a safety classifier declines, the API re-runs t
 request on Anthropic's recommended fallback model.
 """
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
-import anthropic
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from eaa.config import Effort
+from eaa.llm.client import (
+    FALLBACK_BETA,
+    GeneratorConfig,
+    LLMError,
+    Usage,
+    create_message,
+    error_result,
+    strict_tool,
+)
 
-logger = logging.getLogger(__name__)
-
-FALLBACK_BETA = "server-side-fallback-2026-07-01"
+__all__ = ["FALLBACK_BETA", "GeneratorConfig", "LLMError", "Usage"]
 
 DeclineReason = Literal["personal_data", "not_allowed", "not_in_data", "unclear", "refused"]
 
@@ -46,23 +50,9 @@ class _CannotAnswer(BaseModel):
     message: str
 
 
-def _strict_tool(name: str, description: str, properties: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "name": name,
-        "description": description,
-        "strict": True,
-        "input_schema": {
-            "type": "object",
-            "properties": properties,
-            "required": list(properties),
-            "additionalProperties": False,
-        },
-    }
-
-
 _STRINGS = {"type": "array", "items": {"type": "string"}}
 TOOLS: list[dict[str, Any]] = [
-    _strict_tool(
+    strict_tool(
         "submit_query",
         "Submit one read-only PostgreSQL query that answers the question.",
         {
@@ -76,7 +66,7 @@ TOOLS: list[dict[str, Any]] = [
             "ambiguities": {**_STRINGS, "description": "Other plausible readings."},
         },
     ),
-    _strict_tool(
+    strict_tool(
         "cannot_answer",
         "Use when the question cannot or must not be answered with the analytics views.",
         {
@@ -108,44 +98,12 @@ class Declined:
 Proposal = QueryProposal | Declined
 
 
-@dataclass
-class Usage:
-    calls: int = 0
-    input_tokens: int = 0
-    output_tokens: int = 0
-    cache_read_tokens: int = 0
-    cache_creation_tokens: int = 0
-
-    def add(self, usage: Any) -> None:
-        self.calls += 1
-        self.input_tokens += usage.input_tokens or 0
-        self.output_tokens += usage.output_tokens or 0
-        self.cache_read_tokens += usage.cache_read_input_tokens or 0
-        self.cache_creation_tokens += usage.cache_creation_input_tokens or 0
-
-
-class LLMError(Exception):
-    """The model could not be reached or gave an unusable answer. ``message`` is safe."""
-
-    def __init__(self, message: str) -> None:
-        super().__init__(message)
-        self.message = message
-
-
 class Conversation(Protocol):
     usage: Usage
 
     def propose(self, feedback: str | None = None) -> Proposal:
         """The next proposal; ``feedback`` explains why the previous one was refused."""
         ...
-
-
-@dataclass(frozen=True)
-class GeneratorConfig:
-    model: str
-    effort: Effort = "medium"
-    max_tokens: int = 16_000
-    fallbacks: bool = True
 
 
 class ClaudeSQLGenerator:
@@ -177,54 +135,14 @@ class ClaudeConversation:
         if feedback is not None:
             if self._pending_tool_use_id is None:
                 raise RuntimeError("feedback without a previous proposal")
-            self.messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "tool_result",
-                            "tool_use_id": self._pending_tool_use_id,
-                            "content": feedback,
-                            "is_error": True,
-                        }
-                    ],
-                }
-            )
-        response = self._create()
+            self.messages.append(error_result(self._pending_tool_use_id, feedback))
+        response = create_message(
+            self.client, self.config, system=self.system, tools=TOOLS, messages=self.messages
+        )
         self.usage.add(response.usage)
         # The whole content goes back into the history, thinking blocks included.
         self.messages.append({"role": "assistant", "content": response.content})
         return self._read(response)
-
-    def _create(self) -> Any:
-        config = self.config
-        extra: dict[str, Any] = (
-            {"betas": [FALLBACK_BETA], "fallbacks": "default"} if config.fallbacks else {}
-        )
-        try:
-            return self.client.beta.messages.create(
-                model=config.model,
-                max_tokens=config.max_tokens,
-                output_config={"effort": config.effort},
-                system=[
-                    {"type": "text", "text": self.system, "cache_control": {"type": "ephemeral"}}
-                ],
-                tools=TOOLS,
-                tool_choice={"type": "auto", "disable_parallel_tool_use": True},
-                messages=self.messages,
-                **extra,
-            )
-        except anthropic.AuthenticationError:
-            raise LLMError("The LLM provider rejected the API key.") from None
-        except anthropic.RateLimitError:
-            raise LLMError("The LLM provider is rate limiting requests.") from None
-        except anthropic.BadRequestError as error:
-            logger.error("LLM request rejected: %s", error.message)
-            raise LLMError("The LLM provider rejected the request.") from None
-        except anthropic.APIStatusError as error:
-            raise LLMError(f"The LLM provider failed (HTTP {error.status_code}).") from None
-        except anthropic.APIConnectionError:
-            raise LLMError("The LLM provider could not be reached.") from None
 
     def _read(self, response: Any) -> Proposal:
         self._pending_tool_use_id = None

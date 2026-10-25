@@ -2,13 +2,15 @@
 
 **Ask questions about your business data. Get trusted insights, secure SQL and interactive visualizations.**
 
-> Status: early development (milestone 0.6: privacy controls). A question becomes validated SQL,
+> Status: early development (milestone 0.7: checked explanations). A question becomes validated SQL,
 > runs read-only and comes back with its full trace. No interface yet.
 
 **Measured on 53 business questions** (reference SQL, result comparison, 8 injected
 anomalies, 7 questions to refuse): every answer right with Claude Opus 5.5, Opus 5.5 at
 low effort and Sonnet 5.5; 0 permission violations; median 3.7 to 5.2 s and $0.006 to
 $0.015 per question. The evaluation also found a 31 s query, now 1.6 s.
+Each answer comes with a written explanation in which **every number is checked** against
+the result: 25 of 25 verified on the dev split.
 [Method](docs/evaluation.md) and [results](backend/eval/results/README.md).
 
 Enterprise AI Analyst turns a business question such as *"Which 10 customers' revenue dropped

@@ -83,3 +83,22 @@ class FakeAnthropic:
     @property
     def calls(self) -> list[dict[str, Any]]:
         return self.beta.messages.calls
+
+
+def write_explanation(
+    summary: str, key_points: list[str] | None = None, caveats: list[str] | None = None
+) -> BetaMessage:
+    return message(
+        [
+            {
+                "type": "tool_use",
+                "id": "toolu_x",
+                "name": "write_explanation",
+                "input": {
+                    "summary": summary,
+                    "key_points": key_points or [],
+                    "caveats": caveats or [],
+                },
+            }
+        ]
+    )

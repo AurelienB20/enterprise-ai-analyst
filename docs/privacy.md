@@ -10,7 +10,7 @@ would apply to a real company database.
 | Question -> LLM provider | The question, with emails, phone numbers, IBANs, card numbers and French social security numbers masked (`[EMAIL]`...) | The original identifiers |
 | System prompt -> LLM provider | Rules, the reference date, descriptions of the analytics views and metrics | Any data row |
 | Rejection feedback -> LLM provider | Validator messages (they name constructs); database messages, except data exceptions (SQLSTATE 22), which can quote a value and are replaced by a generic text | Values from the views |
-| Result -> LLM provider (0.7) | At most 50 rows, `confidential` values pseudonymised (`CUSTOMER_001`), `pii` columns dropped | Company names, the pseudonym mapping |
+| Result -> LLM provider (explanation) | At most 50 rows, `confidential` values pseudonymised (`CUSTOMER_001`), `pii` columns dropped | Company names, the pseudonym mapping |
 | Result -> user | The rows, with the classification and the source view columns of every column | |
 | Audit trail (`app.analyses`) | Masked question, every proposed SQL and its outcome, the SQL that ran, row count, timings, tokens, cost | Result rows, pseudonym mappings |
 | Logs | Request IDs, statuses, counts, durations, costs | Questions, SQL values, results, secrets |

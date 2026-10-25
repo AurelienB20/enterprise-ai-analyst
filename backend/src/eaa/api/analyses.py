@@ -59,7 +59,18 @@ class UsageOut(BaseModel):
 class TimingsOut(BaseModel):
     generation_ms: float
     execution_ms: float
+    explanation_ms: float
     total_ms: float
+
+
+class InsightOut(BaseModel):
+    status: str = Field(
+        description="verified: every number checked; fallback: commentary withheld; failed."
+    )
+    summary: str
+    key_points: list[str]
+    caveats: list[str]
+    numbers_checked: int
 
 
 class AnalysisResponse(BaseModel):
@@ -74,6 +85,7 @@ class AnalysisResponse(BaseModel):
     executed_sql: str | None = Field(None, description="The SQL that actually ran.")
     views: list[str] = Field(default_factory=list)
     result: ResultOut | None = None
+    insight: InsightOut | None = None
     attempts: list[AttemptOut]
     masked_personal_data: list[str] = Field(
         default_factory=list, description="Kinds of personal data masked in the question."
@@ -131,12 +143,22 @@ def to_response(analysis: Analysis) -> AnalysisResponse:
         attempts=[
             AttemptOut(sql=a.sql, outcome=a.outcome, message=a.message) for a in analysis.attempts
         ],
+        insight=InsightOut(
+            status=analysis.insight.status,
+            summary=analysis.insight.summary,
+            key_points=analysis.insight.key_points,
+            caveats=analysis.insight.caveats,
+            numbers_checked=analysis.insight.numbers_checked,
+        )
+        if analysis.insight
+        else None,
         masked_personal_data=list(analysis.masked_personal_data),
         declined_reason=analysis.declined.reason if analysis.declined else None,
         error=analysis.declined.message if analysis.declined else analysis.error_message,
         timings=TimingsOut(
             generation_ms=analysis.generation_ms,
             execution_ms=analysis.execution_ms,
+            explanation_ms=analysis.explanation_ms,
             total_ms=analysis.total_ms,
         ),
         usage=UsageOut(

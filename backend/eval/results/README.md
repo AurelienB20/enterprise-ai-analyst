@@ -16,8 +16,10 @@ Method: [docs/evaluation.md](../../../docs/evaluation.md).
 | `sonnet-5-5-medium` | Claude Sonnet 5.5, effort medium | 41 | 100 % | $0.26 |
 | `hard-*` | 12 multi-step questions added (set v2), the three configurations | 12 | 100 % each | $0.45 |
 | `retries-probe` | Replay of the 4 questions that needed a second proposal, with attempts logged | 4 | 100 % | $0.06 |
+| `explain-dev` | Milestone 0.7: a checked explanation after every answer (effort medium) | 29 dev | 100 %, 25/25 explanations verified | $1.02 |
+| `explain-low-sample` | Explanation at effort low, 8 of those questions | 8 | 100 %, 7/8 verified | $0.33 |
 
-Total spent on evaluation: about $2.40.
+Total spent on evaluation: about $3.75.
 
 ## What was learned
 
@@ -57,9 +59,17 @@ owner's call, and 53 questions at 100 % for all three cannot show a quality diff
 either direction. Sonnet 5.5 is 2.4 times cheaper and 30 % faster here; it is the
 candidate to adopt if a harder question set confirms it holds up.
 
+**4. Explanations hold their numbers, at a price.** With an explanation written after
+every answer and every number in it checked (ADR 0010), 25 of 25 explanations were
+verified on the dev split, but the median latency went from 5 s to 14 s and the cost per
+question from $0.015 to $0.035. At effort low the explanations were less reliable (one of
+8 withheld) and not faster, so the default stays medium.
+
 ## Next
 
 - Harder questions where the views do not hold the answer directly: cohorts, retention,
   periods defined in words ("since the summer"), questions that need a clarification.
 - The full-scale dataset (100,000 orders) for latency.
 - Repeat runs to measure variance: one run per configuration is one sample.
+- Return the result before the explanation, to bring the latency the user waits for
+  back to about 5 s.

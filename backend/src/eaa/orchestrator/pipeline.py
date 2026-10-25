@@ -20,6 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
+from eaa.analysis.explainer import Insight
 from eaa.execution.executor import (
     ExecutionError,
     PermissionDeniedError,
@@ -49,6 +50,17 @@ class Executor(Protocol):
 
 class ConversationFactory(Protocol):
     def start(self, question: str) -> Conversation: ...
+
+
+class Explainer(Protocol):
+    def explain(
+        self,
+        question: str,
+        sql: str,
+        assumptions: list[str],
+        result: QueryResult,
+        lineage: tuple[ColumnLineage, ...],
+    ) -> Insight: ...
 
 
 @dataclass(frozen=True)
@@ -101,6 +113,8 @@ class Analysis:
     # Kinds of personal data masked in the question ("EMAIL", "PHONE"...).
     masked_personal_data: tuple[str, ...] = ()
     lineage: tuple[ColumnLineage, ...] = ()
+    insight: Insight | None = None
+    explanation_ms: float = 0.0
 
 
 def feedback_for_rejection(error: SQLRejectedError) -> str:
@@ -138,9 +152,11 @@ class AnalysisPipeline:
         prices: Prices,
         max_attempts: int = 3,
         lineage: LineageResolver | None = None,
+        explainer: Explainer | None = None,
     ) -> None:
         self.generator = generator
         self.lineage = lineage
+        self.explainer = explainer
         self.validator = validator
         self.executor = executor
         self.model = model
@@ -160,8 +176,14 @@ class AnalysisPipeline:
             analysis.status = "failed"
             analysis.error_kind = "llm_error"
             analysis.error_message = error.message
-        analysis.usage = conversation.usage
-        analysis.cost_usd = self.prices.cost(conversation.usage)
+        usage = Usage()
+        usage.merge(conversation.usage)
+        if analysis.status == "answered" and self.explainer is not None:
+            self._explain(analysis)
+            if analysis.insight is not None:
+                usage.merge(analysis.insight.usage)
+        analysis.usage = usage
+        analysis.cost_usd = self.prices.cost(usage)
         analysis.total_ms = round((time.perf_counter() - started) * 1000, 1)
         logger.info(
             "Analysis %s",
@@ -175,6 +197,21 @@ class AnalysisPipeline:
             },
         )
         return analysis
+
+    def _explain(self, analysis: Analysis) -> None:
+        if self.explainer is None or analysis.result is None or analysis.executed is None:
+            return
+        if not analysis.result.rows:
+            return
+        started = time.perf_counter()
+        analysis.insight = self.explainer.explain(
+            analysis.question,
+            analysis.executed.sql,
+            list(analysis.proposal.assumptions) if analysis.proposal else [],
+            analysis.result,
+            analysis.lineage,
+        )
+        analysis.explanation_ms = round((time.perf_counter() - started) * 1000, 1)
 
     def _loop(self, conversation: Conversation, analysis: Analysis) -> None:
         feedback: str | None = None

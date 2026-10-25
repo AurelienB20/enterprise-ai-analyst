@@ -15,6 +15,7 @@ SUMMARY_ROWS = (
     ("Valid SQL (answered)", "valid_sql_rate", _pct),
     ("Right on the first proposal", "first_try_rate", _pct),
     ("Permission violations", "permission_violations", str),
+    ("Explanations with every number verified", "explanations_verified_rate", _pct),
     ("Latency p50", "latency_p50_ms", lambda v: f"{v / 1000:.1f} s"),
     ("Latency p95", "latency_p95_ms", lambda v: f"{v / 1000:.1f} s"),
     ("Cost per question", "cost_mean_usd", lambda v: f"${v:.4f}"),
@@ -68,7 +69,9 @@ def render_comparison(reports: list[dict[str, Any]]) -> str:
     labels = [r["config"]["label"] for r in reports]
     lines = ["| Metric | " + " | ".join(labels) + " |", "|---|" + "---|" * len(labels)]
     for label, key, fmt in SUMMARY_ROWS:
-        lines.append(f"| {label} | " + " | ".join(fmt(r["summary"][key]) for r in reports) + " |")
+        lines.append(
+            f"| {label} | " + " | ".join(fmt(r["summary"].get(key)) for r in reports) + " |"
+        )
     by_id = [{q["id"]: q for q in r["questions"]} for r in reports]
     common = [i for i in by_id[0] if all(i in b for b in by_id[1:])]
     changed = [i for i in common if len({b[i]["correct"] for b in by_id}) > 1]

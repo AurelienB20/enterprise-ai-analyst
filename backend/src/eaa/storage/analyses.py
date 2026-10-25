@@ -19,6 +19,7 @@ COLUMNS = (
     "executed_sql", "views", "row_count", "truncated", "assumptions", "ambiguities",
     "explanation", "error_kind", "error_message", "generation_ms", "execution_ms",
     "total_ms", "input_tokens", "output_tokens", "cache_read_tokens", "cost_usd",
+    "insight_status", "insight_numbers_checked", "explanation_ms",
 )  # fmt: skip
 
 
@@ -39,10 +40,11 @@ class AnalysisStore:
                     id, correlation_id, question, status, model, attempts, executed_sql,
                     views, row_count, truncated, assumptions, ambiguities, explanation,
                     error_kind, error_message, generation_ms, execution_ms, total_ms,
-                    input_tokens, output_tokens, cache_read_tokens, cost_usd
+                    input_tokens, output_tokens, cache_read_tokens, cost_usd,
+                    insight_status, insight_numbers_checked, explanation_ms
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s
                 )
                 """,
                 (
@@ -68,6 +70,9 @@ class AnalysisStore:
                     analysis.usage.output_tokens,
                     analysis.usage.cache_read_tokens,
                     analysis.cost_usd,
+                    analysis.insight.status if analysis.insight else None,
+                    analysis.insight.numbers_checked if analysis.insight else None,
+                    analysis.explanation_ms if analysis.insight else None,
                 ),
             )
 

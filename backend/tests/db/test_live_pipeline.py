@@ -80,6 +80,7 @@ def test_revenue_last_month_matches_the_reference(services: Services, reference:
     )[0]
     assert isinstance(expected, Decimal)
     assert analysis.status == "answered"
+    assert analysis.insight is not None and analysis.insight.status == "verified"
     assert any(abs(value - expected) < Decimal("0.01") for value in numbers(analysis))
 
 

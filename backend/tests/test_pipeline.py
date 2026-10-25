@@ -232,3 +232,45 @@ def test_result_columns_get_their_classification(validator: SQLValidator) -> Non
     ).run("q")
 
     assert [c.classification for c in analysis.lineage] == ["confidential", "internal"]
+
+
+class StubExplainer:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def explain(self, question, sql, assumptions, result, lineage):  # type: ignore[no-untyped-def]
+        from eaa.analysis.explainer import Insight
+
+        self.calls.append(question)
+        return Insight(status="verified", summary="ok", usage=Usage(calls=1, output_tokens=50))
+
+
+def test_an_answer_gets_an_explanation_and_its_cost(validator: SQLValidator) -> None:
+    explainer = StubExplainer()
+    analysis = AnalysisPipeline(
+        ScriptedGenerator(proposal(GOOD_SQL)),
+        validator,
+        FakeExecutor(RESULT),
+        model="test-model",
+        prices=PRICES,
+        explainer=explainer,
+    ).run("Revenue for a@b.example?")
+
+    assert analysis.insight is not None and analysis.insight.status == "verified"
+    assert explainer.calls == ["Revenue for [EMAIL]?"]  # masked there too
+    assert analysis.usage.calls == 2
+    assert analysis.cost_usd == pytest.approx((1_000 * 4 + 150 * 20) / 1e6)
+
+
+def test_a_declined_question_is_not_explained(validator: SQLValidator) -> None:
+    explainer = StubExplainer()
+    analysis = AnalysisPipeline(
+        ScriptedGenerator(Declined("not_in_data", "No.")),
+        validator,
+        FakeExecutor(),
+        model="test-model",
+        prices=PRICES,
+        explainer=explainer,
+    ).run("q")
+
+    assert analysis.insight is None and explainer.calls == []

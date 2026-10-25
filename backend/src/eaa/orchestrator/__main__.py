@@ -41,12 +41,20 @@ def main(argv: list[str] | None = None) -> int:
             print(" | ".join(str(value) for value in row))
         if len(analysis.result.rows) > 20 or analysis.result.truncated:
             print("...")
+    if analysis.insight is not None:
+        insight = analysis.insight
+        print(f"\nInsight ({insight.status}, {insight.numbers_checked} numbers checked):")
+        print(f"  {insight.summary}")
+        for point in insight.key_points:
+            print(f"  - {point}")
+        for caveat in insight.caveats:
+            print(f"  Caveat: {caveat}")
     usage = analysis.usage
     print(
         f"\n{usage.calls} LLM call(s), {usage.input_tokens} input + {usage.cache_read_tokens} "
         f"cached + {usage.output_tokens} output tokens, ${analysis.cost_usd:.4f}, "
         f"{analysis.total_ms / 1000:.1f} s (generation {analysis.generation_ms / 1000:.1f} s, "
-        f"SQL {analysis.execution_ms:.0f} ms)"
+        f"SQL {analysis.execution_ms:.0f} ms, explanation {analysis.explanation_ms / 1000:.1f} s)"
     )
     return 0 if analysis.status == "answered" else 1
 

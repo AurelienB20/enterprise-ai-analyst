@@ -40,6 +40,8 @@ class QuestionScore:
     executed_sql: str | None
     error_kind: str | None
     error: str | None
+    insight_status: str | None = None
+    insight_numbers: int = 0
     # Every proposal and why it was refused: where the prompt or the validator can improve.
     attempt_log: tuple[dict[str, str | None], ...] = ()
 
@@ -81,6 +83,8 @@ def score(question: Question, analysis: Analysis, reference: ReferenceRunner) ->
         total_ms=analysis.total_ms,
         executed_sql=analysis.executed.sql if analysis.executed else None,
         error_kind=analysis.error_kind,
+        insight_status=analysis.insight.status if analysis.insight else None,
+        insight_numbers=analysis.insight.numbers_checked if analysis.insight else 0,
         error=declined.message if declined else analysis.error_message,
         attempt_log=tuple(
             {"outcome": a.outcome, "message": a.message, "sql": a.sql} for a in analysis.attempts
@@ -108,6 +112,7 @@ class Summary:
     valid_sql_rate: float | None
     first_try_rate: float | None
     permission_violations: int
+    explanations_verified_rate: float | None
     latency_p50_ms: float
     latency_p95_ms: float
     cost_total_usd: float
@@ -137,6 +142,10 @@ def summarize(scores: Sequence[QuestionScore]) -> Summary:
         valid_sql_rate=_rate(sum(s.status == "answered" for s in answers), len(answers)),
         first_try_rate=_rate(sum(s.first_try for s in answers), len(answers)),
         permission_violations=sum(s.error_kind == "permission_denied" for s in scores),
+        explanations_verified_rate=_rate(
+            sum(s.insight_status == "verified" for s in scores),
+            sum(s.insight_status is not None for s in scores),
+        ),
         latency_p50_ms=_percentile(latencies, 0.5),
         latency_p95_ms=_percentile(latencies, 0.95),
         cost_total_usd=total_cost,

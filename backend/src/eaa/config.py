@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # Proposals the model may make for one question when the validator or the database
     # rejects the previous one.
     llm_max_attempts: int = Field(default=3, ge=1, le=5)
+    # Write a checked explanation of each result (one or two more LLM calls), at its own
+    # effort. "low" was measured worse (more invented figures, no faster): see
+    # eval/results/README.md.
+    explain_results: bool = True
+    explain_effort: Effort = "medium"
     # USD per million tokens, for the cost estimate of each analysis. Set them to the
     # prices of LLM_MODEL.
     llm_input_price_per_mtok: float = Field(default=4.0, ge=0)

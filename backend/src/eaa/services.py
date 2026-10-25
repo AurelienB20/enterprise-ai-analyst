@@ -5,6 +5,7 @@ from datetime import date
 
 import anthropic
 
+from eaa.analysis.explainer import ResultExplainer
 from eaa.config import Settings
 from eaa.execution.executor import ExecutionLimits, ReadOnlyExecutor
 from eaa.llm.prompt import render_system_prompt
@@ -38,13 +39,17 @@ def build_pipeline(settings: Settings) -> AnalysisPipeline:
     )
     api_key = settings.anthropic_api_key.get_secret_value() if settings.anthropic_api_key else None
     llm_model = settings.require_llm_model()
-    generator = ClaudeSQLGenerator(
-        anthropic.Anthropic(api_key=api_key),
-        GeneratorConfig(
-            model=llm_model, effort=settings.llm_effort, max_tokens=settings.llm_max_tokens
-        ),
-        render_system_prompt(model, reference_date(executor, validator)),
+    client = anthropic.Anthropic(api_key=api_key)
+    config = GeneratorConfig(
+        model=llm_model, effort=settings.llm_effort, max_tokens=settings.llm_max_tokens
     )
+    generator = ClaudeSQLGenerator(
+        client, config, render_system_prompt(model, reference_date(executor, validator))
+    )
+    explain_config = GeneratorConfig(
+        model=llm_model, effort=settings.explain_effort, max_tokens=settings.llm_max_tokens
+    )
+    explainer = ResultExplainer(client, explain_config) if settings.explain_results else None
     return AnalysisPipeline(
         generator,
         validator,
@@ -57,6 +62,7 @@ def build_pipeline(settings: Settings) -> AnalysisPipeline:
         ),
         max_attempts=settings.llm_max_attempts,
         lineage=LineageResolver(model),
+        explainer=explainer,
     )
 
 
