@@ -26,6 +26,7 @@ from eaa.llm.client import (
     GeneratorConfig,
     LLMError,
     Usage,
+    clean_text,
     create_message,
     error_result,
     strict_tool,
@@ -216,7 +217,13 @@ class ResultExplainer:
         if not tool_uses or tool_uses[0].name != "write_explanation":
             raise LLMError("The model did not write an explanation.")
         try:
-            return _Explanation.model_validate(tool_uses[0].input), tool_uses[0].id
+            explanation = _Explanation.model_validate(tool_uses[0].input)
+            cleaned = _Explanation(
+                summary=clean_text(explanation.summary),
+                key_points=[clean_text(p) for p in explanation.key_points],
+                caveats=[clean_text(c) for c in explanation.caveats],
+            )
+            return cleaned, tool_uses[0].id
         except ValidationError:
             raise LLMError("The model wrote an explanation with invalid fields.") from None
 

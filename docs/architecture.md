@@ -109,5 +109,5 @@ backend/src/eaa/
 | 0.5 | Evaluation: 53 questions with reference SQL, result comparison, dev/test split | A measured baseline (done: docs/evaluation.md) |
 | 0.6 | Privacy: question masking, column lineage, pseudonymised provider payload | No company name reaches the payload (done: docs/privacy.md) |
 | 0.7 | Analysis: deterministic calculations, explanations, number check | No unchecked figure is shown (done: ADR 0010) |
-| 0.8 | Next.js frontend, Recharts, Analysis Trace | Checked in a browser |
+| 0.8 | Next.js frontend, Recharts, Analysis Trace | Checked in a browser (done) |
 | 0.9 | Production readiness: authentication, Docker, observability, deployment | Smoke test on a production-like stack |

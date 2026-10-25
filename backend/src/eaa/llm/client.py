@@ -6,6 +6,7 @@ provider errors turned into safe messages.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -104,6 +105,18 @@ def strict_tool(name: str, description: str, properties: dict[str, Any]) -> dict
             "additionalProperties": False,
         },
     }
+
+
+_LITERAL_ESCAPE = re.compile(r"\\u([0-9a-fA-F]{4})")
+
+
+def clean_text(text: str) -> str:
+    """Undo JSON escapes the model sometimes leaves in tool-argument strings.
+
+    Current models may escape non-ASCII characters twice, so that a parsed argument
+    reads "cat\\u00e9gories" instead of "catégories". Seen in a live run.
+    """
+    return _LITERAL_ESCAPE.sub(lambda match: chr(int(match.group(1), 16)), text)
 
 
 def error_result(tool_use_id: str, text: str) -> dict[str, Any]:

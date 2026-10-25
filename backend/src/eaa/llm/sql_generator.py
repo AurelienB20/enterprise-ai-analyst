@@ -23,6 +23,7 @@ from eaa.llm.client import (
     GeneratorConfig,
     LLMError,
     Usage,
+    clean_text,
     create_message,
     error_result,
     strict_tool,
@@ -162,13 +163,13 @@ class ClaudeConversation:
                 return QueryProposal(
                     sql=query.sql,
                     views_used=tuple(query.views_used),
-                    explanation=query.explanation,
-                    assumptions=tuple(query.assumptions),
-                    ambiguities=tuple(query.ambiguities),
+                    explanation=clean_text(query.explanation),
+                    assumptions=tuple(clean_text(a) for a in query.assumptions),
+                    ambiguities=tuple(clean_text(a) for a in query.ambiguities),
                 )
             if tool_use.name == "cannot_answer":
                 declined = _CannotAnswer.model_validate(tool_use.input)
-                return Declined(declined.reason, declined.message)
+                return Declined(declined.reason, clean_text(declined.message))
         except ValidationError:
             raise LLMError("The model called a tool with invalid arguments.") from None
         raise LLMError(f"The model called an unknown tool: {tool_use.name}.")

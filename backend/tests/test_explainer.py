@@ -86,3 +86,10 @@ def test_a_refusal_fails_the_explanation_only() -> None:
     insight = explain(FakeAnthropic(message([], stop_reason="refusal")))
 
     assert insight.status == "failed"
+
+
+def test_escapes_left_by_the_model_are_undone() -> None:
+    # Seen live: accents escaped twice in the tool arguments.
+    client = FakeAnthropic(write_explanation("Les cat\u00e9gories baissent de 75 %."))
+
+    assert explain(client).summary == "Les catégories baissent de 75 %."

@@ -2,8 +2,10 @@
 
 **Ask questions about your business data. Get trusted insights, secure SQL and interactive visualizations.**
 
-> Status: early development (milestone 0.7: checked explanations). A question becomes validated SQL,
-> runs read-only and comes back with its full trace. No interface yet.
+> Status: milestone 0.8, web interface. A question becomes validated SQL, runs read-only and
+> comes back with a checked explanation, a chart, the table and its full trace.
+
+![An answer: checked explanation, with the real customer names restored after pseudonymisation](docs/images/answer.jpg)
 
 **Measured on 53 business questions** (reference SQL, result comparison, 8 injected
 anomalies, 7 questions to refuse): every answer right with Claude Opus 5.5, Opus 5.5 at
@@ -56,7 +58,19 @@ uv run python -m eaa.orchestrator "Quel est le chiffre d'affaires du mois dernie
 uv run uvicorn eaa.main:create_app --factory --reload
 ```
 
-Then open http://127.0.0.1:8000/docs and try `POST /analyses` with
+Then the web interface, in another terminal (Node.js 22):
+
+```
+cd frontend
+npm install
+API_URL=http://127.0.0.1:8000 npm run dev     # add API_KEY=... if the backend has one
+```
+
+Open http://localhost:3000: ask a question, read the checked explanation, the chart and
+the table, and open the **AI Analysis Trace** to see the assumptions, every attempt, the
+SQL that ran, the classification of each column, the timings and the cost.
+
+Or use the API directly: open http://127.0.0.1:8000/docs and try `POST /analyses` with
 `{"question": "Which category dropped the most this quarter?"}`. The response carries the
 SQL that the model proposed, the SQL that actually ran, every rejected attempt, the
 assumptions, the rows, timings, tokens and cost.
