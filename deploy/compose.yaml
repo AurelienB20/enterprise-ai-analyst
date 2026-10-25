@@ -1,0 +1,102 @@
+# The production stack: PostgreSQL, the migrations, the API, the web interface and Caddy
+# (HTTPS). Only Caddy is published; the API and the database stay on the internal
+# network. Usage, from this directory (docs/deployment.md):
+#   cp .env.example .env    # then fill it in
+#   docker compose up -d --build
+#   docker compose --profile seed run --rm seed     # once: the synthetic dataset
+
+name: eaa
+
+services:
+  db:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: eaa
+      EAA_OWNER_PASSWORD: ${EAA_OWNER_PASSWORD:?}
+      EAA_READER_PASSWORD: ${EAA_READER_PASSWORD:?}
+      EAA_APP_PASSWORD: ${EAA_APP_PASSWORD:?}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Run once, on an empty volume: the three roles and the database owner.
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+      - ../backend/scripts/create_roles.sql:/eaa/create_roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d eaa"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build: ../backend
+    image: eaa-backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql://eaa_owner:${EAA_OWNER_PASSWORD}@db:5432/eaa
+    depends_on:
+      db:
+        condition: service_healthy
+
+  seed:
+    image: eaa-backend
+    profiles: ["seed"]
+    command: ["python", "-m", "eaa.synthetic", "--scale", "${DATASET_SCALE:-small}", "--seed", "42"]
+    environment:
+      DATABASE_URL: postgresql://eaa_owner:${EAA_OWNER_PASSWORD}@db:5432/eaa
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  api:
+    image: eaa-backend
+    restart: unless-stopped
+    environment:
+      READER_DATABASE_URL: postgresql://eaa_reader:${EAA_READER_PASSWORD}@db:5432/eaa
+      APP_DATABASE_URL: postgresql://eaa_app:${EAA_APP_PASSWORD}@db:5432/eaa
+      API_KEY: ${API_KEY:?}
+      DAILY_BUDGET_USD: ${DAILY_BUDGET_USD:?}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?}
+      LLM_MODEL: ${LLM_MODEL:-claude-opus-5-5}
+      LLM_INPUT_PRICE_PER_MTOK: ${LLM_INPUT_PRICE_PER_MTOK:-4.0}
+      LLM_OUTPUT_PRICE_PER_MTOK: ${LLM_OUTPUT_PRICE_PER_MTOK:-20.0}
+      LLM_CACHE_READ_PRICE_PER_MTOK: ${LLM_CACHE_READ_PRICE_PER_MTOK:-0.2}
+      ANALYSES_PER_CLIENT_PER_HOUR: ${ANALYSES_PER_CLIENT_PER_HOUR:-20}
+      MAX_CONCURRENT_ANALYSES: ${MAX_CONCURRENT_ANALYSES:-4}
+      # Only the web server reaches the API, on this network: it sets X-Forwarded-For.
+      FORWARDED_ALLOW_IPS: "*"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build: ../frontend
+    image: eaa-frontend
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8000
+      API_KEY: ${API_KEY:?}
+    depends_on:
+      api:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

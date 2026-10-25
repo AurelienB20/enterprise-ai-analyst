@@ -39,6 +39,7 @@ It is not a raw Text-to-SQL chatbot. Three ideas drive the design:
 - [Security of generated SQL: layers, attack corpus, residual risks](docs/security.md)
 - [Evaluation: method](docs/evaluation.md) and [results](backend/eval/results/README.md)
 - [Privacy by design: data flows, pseudonymisation, re-identification risks](docs/privacy.md)
+- [Deployment: the Docker stack, limits, backups](docs/deployment.md)
 - [Architecture decision records](docs/adr/)
 
 ## Run locally

@@ -141,7 +141,7 @@ def test_an_unconfigured_service_says_so() -> None:
         response = client.post("/analyses", json={"question": "Revenue?"})
 
     assert response.status_code == 503
-    assert "not configured" in response.json()["detail"]
+    assert "not ready" in response.json()["detail"]
 
 
 def parse_events(text: str) -> list[tuple[str, dict[str, Any]]]:

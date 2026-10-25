@@ -2,6 +2,7 @@
 same as server-sent events, so the result shows while the explanation is written;
 GET /analyses/{id} returns the audit trace (without result rows, never stored)."""
 
+import asyncio
 import json
 import logging
 import uuid
@@ -177,12 +178,28 @@ def to_response(analysis: Analysis) -> AnalysisResponse:
     )
 
 
-def get_services(request: Request) -> Services:
+_build_lock = asyncio.Lock()
+
+
+async def get_services(request: Request) -> Services:
+    """The services built at startup, or built now if that failed (for example the API
+    started before the dataset was loaded). Retried at most once per request."""
     services: Services | None = getattr(request.app.state, "services", None)
+    if services is None and getattr(request.app.state, "build_services", None):
+        async with _build_lock:
+            services = request.app.state.services
+            if services is None:
+                try:
+                    services = await run_in_threadpool(
+                        request.app.state.build_services, request.app.state.settings
+                    )
+                    request.app.state.services = services
+                except Exception as error:
+                    logger.warning("Analysis service still unavailable: %s", error)
     if services is None:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE,
-            "The analysis service is not configured (database URLs, LLM_MODEL).",
+            "The analysis service is not ready (database, dataset or LLM settings).",
         )
     return services
 

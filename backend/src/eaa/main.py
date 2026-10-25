@@ -50,6 +50,8 @@ def create_app(settings: Settings | None = None, services: Services | None = Non
     )
     app.state.settings = settings
     app.state.services = services
+    # Injected services (tests) are never rebuilt; otherwise /analyses retries the build.
+    app.state.build_services = build_services if services is None else None
     app.state.rate_limiter = RateLimiter(settings.analyses_per_client_per_hour)
     app.state.concurrency_limiter = ConcurrencyLimiter(settings.max_concurrent_analyses)
     app.add_middleware(CorrelationIdMiddleware)

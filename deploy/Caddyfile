@@ -1,0 +1,17 @@
+# HTTPS in front of the web interface. Caddy obtains and renews the certificate (Let's
+# Encrypt) for DOMAIN; with DOMAIN=localhost it uses its own local authority.
+
+{$DOMAIN} {
+	# The streamed analysis stays uncompressed: a compressor would hold the events back.
+	@compressible not path /api/analyses/stream
+	encode @compressible zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# Caddy sets X-Forwarded-For to the visitor's address; the web server passes it to
+	# the API, whose limits then apply per visitor.
+	reverse_proxy web:3000
+}

@@ -30,3 +30,7 @@ Thumbs.db
 
 # TypeScript incremental build state
 *.tsbuildinfo
+
+# Server-side secrets and dumps (deploy/)
+deploy/.env
+deploy/backups/
