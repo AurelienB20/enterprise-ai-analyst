@@ -81,6 +81,17 @@ The full table, with what is masked or pseudonymised, is in [privacy.md](privacy
 tests assert it. Logs hold IDs, counts and durations, never query results or personal
 data.
 
+## Observability
+
+- Every request carries a correlation ID (`X-Request-ID`), in every log line (JSON in
+  production) and in the audit trail.
+- Logs hold IDs, statuses, counts, durations and costs; never questions, SQL values or
+  results.
+- `GET /analyses/stats?days=7` aggregates the audit trail: statuses, SQL proposals and
+  validator rejections, query timeouts, permission violations, provider errors,
+  explanations verified or withheld, questions with personal data masked, tokens, cost,
+  latency p50/p95. The interface shows them on `/metrics`.
+
 ## Code layout
 
 ```text

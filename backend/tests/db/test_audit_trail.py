@@ -107,3 +107,27 @@ def test_todays_spending_adds_up_recorded_costs(app_database_url: str) -> None:
     store.record(answered(), correlation_id=None)
 
     assert store.spent_today() - before == Decimal("0.000123")
+
+
+def test_stats_count_statuses_rejections_privacy_and_cost(app_database_url: str) -> None:
+    store = AnalysisStore(app_database_url)
+    before = store.stats(days=1)
+
+    store.record(answered(), correlation_id=None)  # one rejected proposal, then accepted
+    masked = Analysis(question="[EMAIL]?", model="m", status="declined")
+    masked.declined = Declined("personal_data", "No.")
+    masked.masked_personal_data = ("EMAIL",)
+    store.record(masked, correlation_id=None)
+    after = store.stats(days=1)
+
+    def delta(key: str) -> object:
+        return after[key] - before[key]
+
+    assert delta("analyses") == 2
+    assert delta("answered") == 1 and delta("declined") == 1
+    assert delta("sql_proposals") == 2 and delta("sql_rejected_by_validator") == 1
+    assert delta("questions_with_personal_data_masked") == 1
+    assert delta("cost_usd") == Decimal("0.000123")
+    assert after["latency_p50_ms"] is not None
+    # Aggregates only: nothing from a question or a result.
+    assert "Revenue by region" not in repr(after) and "Southern Europe" not in repr(after)

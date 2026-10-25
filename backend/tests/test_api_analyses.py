@@ -8,6 +8,7 @@ from typing import Any, cast
 import pytest
 from fastapi.testclient import TestClient
 
+from eaa.api.analyses import StatsOut
 from eaa.config import Settings
 from eaa.execution.executor import QueryResult, ResultColumn
 from eaa.llm.sql_generator import QueryProposal
@@ -60,6 +61,11 @@ class MemoryStore:
 
     def spent_today(self) -> Decimal:
         return self.spent
+
+    def stats(self, days: int) -> dict[str, Any]:
+        row: dict[str, Any] = dict.fromkeys(StatsOut.model_fields, 0)
+        del row["days"]
+        return {**row, "analyses": len(self.rows), "latency_p50_ms": None}
 
     def record(self, analysis: Analysis, correlation_id: str | None) -> None:
         self.rows[analysis.id] = {"id": analysis.id, "status": analysis.status, "cost_usd": 0}
@@ -206,3 +212,13 @@ def test_slots_are_released_after_each_analysis(stub: StubPipeline, store: Memor
         for _ in range(3):
             assert client.post("/analyses/stream", json={"question": "Revenue?"}).status_code == 200
             assert client.post("/analyses", json={"question": "Revenue?"}).status_code == 200
+
+
+def test_stats_are_served_and_bounded(client: TestClient) -> None:
+    client.post("/analyses", json={"question": "Revenue?"})
+
+    response = client.get("/analyses/stats", params={"days": 30})
+
+    assert response.status_code == 200
+    assert response.json()["analyses"] == 1 and response.json()["days"] == 30
+    assert client.get("/analyses/stats", params={"days": 365}).status_code == 422

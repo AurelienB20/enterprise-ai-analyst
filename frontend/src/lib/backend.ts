@@ -126,3 +126,19 @@ export async function forwardStream(
     },
   });
 }
+
+/** Read a JSON resource from the backend, server-side (for server components). */
+export async function getJson<T>(path: string, config: BackendConfig = backendConfig()): Promise<T | null> {
+  const headers = new Headers({ accept: "application/json" });
+  if (config.apiKey) headers.set("x-api-key", config.apiKey);
+  try {
+    const response = await fetch(`${config.url}${path}`, {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    return response.ok ? ((await response.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}

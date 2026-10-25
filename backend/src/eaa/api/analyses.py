@@ -11,7 +11,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, StringConstraints
@@ -297,6 +297,39 @@ async def stream_analysis(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
     )
+
+
+class StatsOut(BaseModel):
+    days: int
+    analyses: int
+    answered: int
+    declined: int
+    rejected: int
+    failed: int
+    sql_proposals: int
+    sql_rejected_by_validator: int
+    sql_timeouts: int
+    permission_violations: int
+    llm_errors: int
+    explanations_verified: int
+    explanations_withheld: int
+    questions_with_personal_data_masked: int
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+    latency_p50_ms: float | None
+    latency_p95_ms: float | None
+
+
+@router.get("/stats")
+async def analysis_stats(
+    services: Annotated[Services, Depends(get_services)],
+    days: Annotated[int, Query(ge=1, le=90)] = 7,
+) -> StatsOut:
+    """Service metrics from the audit trail: counts, rates, latency, cost. Aggregates
+    only: no question and no result value."""
+    row = await run_in_threadpool(services.store.stats, days)
+    return StatsOut(days=days, **row)
 
 
 @router.get("/{analysis_id}")
