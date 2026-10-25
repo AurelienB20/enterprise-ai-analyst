@@ -27,18 +27,18 @@ The data is synthetic; the controls are the ones real data would need.
 ## Architecture
 
 ```mermaid
-flowchart LR
-    U[User] --> W["Web (Next.js)<br/>adds the API key"]
-    W --> A["API (FastAPI)<br/>limits, audit"]
-    A --> M["Masking of personal data<br/>in the question"]
-    M --> L1["Claude: submit_query<br/>(semantic model, no data)"]
-    L1 --> V["Validator (SQLGlot)<br/>allowlist, regenerated SQL"]
-    V -- rejected: reason --> L1
-    V --> E["Executor<br/>read-only, timeouts, row cap"]
-    E --> DB[("PostgreSQL<br/>eaa_reader: analytics views only")]
-    E --> P["Privacy: lineage,<br/>pseudonymised payload"]
-    P --> L2["Claude: explanation<br/>from computed facts"]
-    L2 --> N["Number check"]
+flowchart TD
+    U["User"] --> W["Web, Next.js: adds the API key"]
+    W --> A["API, FastAPI: limits and audit trail"]
+    A --> M["Personal data masked in the question"]
+    M --> L1["Claude writes SQL from the semantic model, no data"]
+    L1 --> V["Validator, SQLGlot: allowlist, regenerated SQL"]
+    V -->|rejected, with the reason| L1
+    V --> E["Executor: read-only, timeouts, row cap"]
+    E --> DB[("PostgreSQL, role eaa_reader: analytics views only")]
+    E --> P["Privacy: column lineage, pseudonymised payload"]
+    P --> L2["Claude explains from facts computed by code"]
+    L2 --> N["Every number checked against the result"]
     N --> W
 ```
 
