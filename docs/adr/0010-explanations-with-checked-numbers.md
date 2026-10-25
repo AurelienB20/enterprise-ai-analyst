@@ -41,5 +41,5 @@ Prompting the model to be careful reduces the risk; it does not remove it.
 - The check catches invented and miscomputed figures, not wrong words around right ones
   ("rose" for a drop of the same size is caught only through the sign of facts, which
   the check compares loosely). Wording is not evaluated automatically yet.
-- Latency is now the main weakness: the explanation should not block the result. Next
-  step: return the result first and the explanation after (separate request or streaming).
+- Latency is now the main weakness: the explanation should not block the result. Done
+  in ADR 0011 (streamed result first), which also bounds the explanation's cost.

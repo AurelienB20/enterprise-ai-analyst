@@ -62,3 +62,48 @@ export async function forward(
   if (requestId) passed.set("x-request-id", requestId);
   return new Response(await response.text(), { status: response.status, headers: passed });
 }
+
+/**
+ * Like ``forward``, for the streamed analysis: the server-sent events are passed on as
+ * they arrive, never buffered, and the backend request stops if the browser leaves.
+ */
+export async function forwardStream(
+  request: Request,
+  path: string,
+  config: BackendConfig = backendConfig(),
+  fetchImpl: typeof fetch = fetch,
+): Promise<Response> {
+  const body = await request.text();
+  if (new TextEncoder().encode(body).length > MAX_BODY_BYTES) {
+    return jsonError(413, "Request body too large.");
+  }
+  const headers = new Headers({ accept: "text/event-stream", "content-type": "application/json" });
+  if (config.apiKey) headers.set("x-api-key", config.apiKey);
+  let response: Response;
+  try {
+    response = await fetchImpl(`${config.url}${path}`, {
+      method: "POST",
+      headers,
+      body,
+      cache: "no-store",
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)]),
+    });
+  } catch {
+    return jsonError(502, "The backend is unreachable.");
+  }
+  const contentType = response.headers.get("content-type") ?? "application/json";
+  if (!response.ok || !contentType.startsWith("text/event-stream")) {
+    return new Response(await response.text(), {
+      status: response.status,
+      headers: { "content-type": contentType },
+    });
+  }
+  return new Response(response.body, {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+    },
+  });
+}

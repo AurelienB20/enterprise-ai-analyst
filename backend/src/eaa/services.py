@@ -47,7 +47,7 @@ def build_pipeline(settings: Settings) -> AnalysisPipeline:
         client, config, render_system_prompt(model, reference_date(executor, validator))
     )
     explain_config = GeneratorConfig(
-        model=llm_model, effort=settings.explain_effort, max_tokens=settings.llm_max_tokens
+        model=llm_model, effort=settings.explain_effort, max_tokens=settings.explain_max_tokens
     )
     explainer = ResultExplainer(client, explain_config) if settings.explain_results else None
     return AnalysisPipeline(

@@ -1,3 +1,4 @@
+import json
 import uuid
 from collections.abc import Iterator
 from datetime import date
@@ -20,8 +21,20 @@ from eaa.storage.analyses import AnalysisStore
 class StubPipeline:
     def __init__(self) -> None:
         self.questions: list[str] = []
+        self.explained: list[uuid.UUID] = []
 
     def run(self, question: str) -> Analysis:
+        analysis = self.answer(question)
+        self.explain(analysis)
+        return analysis
+
+    def explain(self, analysis: Analysis) -> None:
+        from eaa.analysis.explainer import Insight
+
+        self.explained.append(analysis.id)
+        analysis.insight = Insight(status="verified", summary="Western Europe leads.")
+
+    def answer(self, question: str) -> Analysis:
         self.questions.append(question)
         analysis = Analysis(question=question, model="test-model", status="answered")
         analysis.proposal = QueryProposal(
@@ -125,3 +138,37 @@ def test_an_unconfigured_service_says_so() -> None:
 
     assert response.status_code == 503
     assert "not configured" in response.json()["detail"]
+
+
+def parse_events(text: str) -> list[tuple[str, dict[str, Any]]]:
+    events = []
+    for block in text.strip().split("\n\n"):
+        lines = dict(line.split(": ", 1) for line in block.splitlines())
+        events.append((lines["event"], json.loads(lines["data"])))
+    return events
+
+
+def test_the_stream_sends_the_answer_then_the_explanation(
+    client: TestClient, stub: StubPipeline, store: MemoryStore
+) -> None:
+    response = client.post("/analyses/stream", json={"question": "Customers by region?"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    events = parse_events(response.text)
+    assert [name for name, _ in events] == ["answer", "done"]
+    answer, done = events[0][1], events[1][1]
+    assert answer["insight"] is None and answer["result"]["row_count"] == 2
+    assert done["insight"]["summary"] == "Western Europe leads."
+    assert uuid.UUID(done["id"]) in store.rows
+
+
+def test_a_failure_in_the_stream_is_an_error_event(client: TestClient, stub: StubPipeline) -> None:
+    def broken(question: str) -> Analysis:
+        raise RuntimeError("boom")
+
+    stub.answer = broken  # type: ignore[method-assign]
+
+    events = parse_events(client.post("/analyses/stream", json={"question": "q?x"}).text)
+
+    assert events == [("error", {"detail": "The analysis failed."})]

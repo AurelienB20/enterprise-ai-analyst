@@ -71,5 +71,4 @@ question from $0.015 to $0.035. At effort low the explanations were less reliabl
   periods defined in words ("since the summer"), questions that need a clarification.
 - The full-scale dataset (100,000 orders) for latency.
 - Repeat runs to measure variance: one run per configuration is one sample.
-- Return the result before the explanation, to bring the latency the user waits for
-  back to about 5 s.
+- Re-run the explanations with the 4,000-token ceiling of ADR 0011.

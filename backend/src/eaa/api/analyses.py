@@ -1,14 +1,18 @@
-"""POST /analyses runs a question through the pipeline; GET /analyses/{id} returns its
-audit trace (without result rows, which are never stored)."""
+"""POST /analyses runs a question through the pipeline; POST /analyses/stream does the
+same as server-sent events, so the result shows while the explanation is written;
+GET /analyses/{id} returns the audit trace (without result rows, never stored)."""
 
+import json
 import logging
 import uuid
+from collections.abc import AsyncIterator
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, StringConstraints
 
 from eaa.observability.logs import correlation_id_var
@@ -192,6 +196,51 @@ async def create_analysis(
         # The answer is still valid; a missing audit row is logged loudly, not hidden.
         logger.exception("Could not record analysis %s", analysis.id)
     return to_response(analysis)
+
+
+def _event(name: str, data: BaseModel | dict[str, Any]) -> str:
+    payload = data.model_dump_json() if isinstance(data, BaseModel) else json.dumps(data)
+    return f"event: {name}\ndata: {payload}\n\n"
+
+
+@router.post(
+    "/stream",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "content": {"text/event-stream": {}},
+            "description": (
+                "Server-sent events: `answer` (the result and its trace, no explanation "
+                "yet), then `done` (the same with the checked explanation, final timings "
+                "and cost), or `error`."
+            ),
+        }
+    },
+)
+async def stream_analysis(
+    body: AnalysisRequest, services: Annotated[Services, Depends(get_services)]
+) -> StreamingResponse:
+    async def events() -> AsyncIterator[str]:
+        try:
+            analysis = await run_in_threadpool(services.pipeline.answer, body.question)
+            yield _event("answer", to_response(analysis))
+            await run_in_threadpool(services.pipeline.explain, analysis)
+        except Exception:
+            logger.exception("Streamed analysis failed")
+            yield _event("error", {"detail": "The analysis failed."})
+            return
+        try:
+            await run_in_threadpool(services.store.record, analysis, correlation_id_var.get())
+        except Exception:
+            logger.exception("Could not record analysis %s", analysis.id)
+        yield _event("done", to_response(analysis))
+
+    # no-transform: a compressing proxy would hold the events back.
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/{analysis_id}")

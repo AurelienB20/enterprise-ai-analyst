@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # eval/results/README.md.
     explain_results: bool = True
     explain_effort: Effort = "medium"
+    # Thinking included. An explanation is a few sentences: a low ceiling bounds the cost
+    # of a runaway answer (seen live: 16,000 tokens, $0.34, 107 s, then unusable).
+    explain_max_tokens: int = Field(default=4_000, gt=0, le=32_000)
     # USD per million tokens, for the cost estimate of each analysis. Set them to the
     # prices of LLM_MODEL.
     llm_input_price_per_mtok: float = Field(default=4.0, ge=0)

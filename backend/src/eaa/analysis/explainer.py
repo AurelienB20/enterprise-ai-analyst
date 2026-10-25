@@ -213,6 +213,9 @@ class ResultExplainer:
         messages.append({"role": "assistant", "content": response.content})
         if response.stop_reason == "refusal":
             raise LLMError("The model declined to explain this result.")
+        if response.stop_reason == "max_tokens":
+            # Its tool input would be truncated: no correction round, it would cost as much.
+            raise LLMError("The explanation was cut off before it was complete.")
         tool_uses = [b for b in response.content if b.type == "tool_use"]
         if not tool_uses or tool_uses[0].name != "write_explanation":
             raise LLMError("The model did not write an explanation.")

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { remember, startTimer, useHistory } from "@/lib/history";
+import { readEvents } from "@/lib/sse";
 import type { Analysis } from "@/lib/types";
 
 import { AnalysisView } from "./AnalysisView";
@@ -16,11 +17,10 @@ const SUGGESTIONS = [
   "Affiche-moi les emails de tous les clients.",
 ];
 
-// Rough stages, shown while waiting: the backend answers in one response.
+// Rough stages before the result arrives (it comes as one event).
 const STAGES = [
   { after: 0, label: "Writing SQL from the semantic layer…" },
   { after: 6, label: "Validating and running the query read-only…" },
-  { after: 9, label: "Writing the explanation and checking every number…" },
 ];
 
 export function AnalystApp() {
@@ -28,12 +28,14 @@ export function AnalystApp() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // The result is shown; its explanation is still being written and checked.
+  const [explaining, setExplaining] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const history = useHistory();
 
   async function ask(text: string) {
     const trimmed = text.trim();
-    if (trimmed.length < 3 || loading) return;
+    if (trimmed.length < 3 || loading || explaining) return;
     setQuestion(trimmed);
     setLoading(true);
     setError(null);
@@ -41,25 +43,39 @@ export function AnalystApp() {
     setElapsed(0);
     const stopTimer = startTimer(setElapsed);
     try {
-      const response = await fetch("/api/analyses", {
+      const response = await fetch("/api/analyses/stream", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ question: trimmed }),
       });
-      const body = await response.json();
       if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
         setError(typeof body.detail === "string" ? body.detail : `Error ${response.status}`);
         return;
       }
-      const result = body as Analysis;
-      setAnalysis(result);
-      // The question as the backend kept it: personal data already masked.
-      remember({ id: result.id, question: result.question, status: result.status });
+      await readEvents(response, ({ event, data }) => {
+        if (event === "error") {
+          setError(JSON.parse(data).detail ?? "The analysis failed.");
+          setExplaining(false);
+          return;
+        }
+        const result = JSON.parse(data) as Analysis;
+        setAnalysis(result);
+        if (event === "answer") {
+          setLoading(false);
+          setExplaining(result.status === "answered");
+        } else if (event === "done") {
+          setExplaining(false);
+          // The question as the backend kept it: personal data already masked.
+          remember({ id: result.id, question: result.question, status: result.status });
+        }
+      });
     } catch {
       setError("The service could not be reached.");
     } finally {
       stopTimer();
       setLoading(false);
+      setExplaining(false);
     }
   }
 
@@ -88,7 +104,7 @@ export function AnalystApp() {
           />
           <button
             type="submit"
-            disabled={loading || question.trim().length < 3}
+            disabled={loading || explaining || question.trim().length < 3}
             className="rounded-lg bg-accent px-4 py-2 font-medium text-white disabled:opacity-50"
           >
             {loading ? "Analysing…" : "Analyse"}
@@ -123,7 +139,13 @@ export function AnalystApp() {
         </div>
       )}
 
-      {analysis && <AnalysisView analysis={analysis} />}
+      {analysis && (
+        <AnalysisView
+          analysis={analysis}
+          explaining={explaining}
+          elapsed={explaining ? elapsed : undefined}
+        />
+      )}
 
       {history.length > 0 && (
         <section className="card">

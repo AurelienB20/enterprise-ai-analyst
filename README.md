@@ -12,7 +12,8 @@ anomalies, 7 questions to refuse): every answer right with Claude Opus 5.5, Opus
 low effort and Sonnet 5.5; 0 permission violations; median 3.7 to 5.2 s and $0.006 to
 $0.015 per question. The evaluation also found a 31 s query, now 1.6 s.
 Each answer comes with a written explanation in which **every number is checked** against
-the result: 25 of 25 verified on the dev split.
+the result: 25 of 25 verified on the dev split. The result is streamed first (about 9 s),
+the explanation follows.
 [Method](docs/evaluation.md) and [results](backend/eval/results/README.md).
 
 Enterprise AI Analyst turns a business question such as *"Which 10 customers' revenue dropped

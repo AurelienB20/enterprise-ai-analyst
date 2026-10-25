@@ -93,3 +93,17 @@ def test_escapes_left_by_the_model_are_undone() -> None:
     client = FakeAnthropic(write_explanation("Les cat\u00e9gories baissent de 75 %."))
 
     assert explain(client).summary == "Les catégories baissent de 75 %."
+
+
+def test_a_cut_off_explanation_fails_fast_without_a_second_call() -> None:
+    cut = message(
+        [{"type": "tool_use", "id": "t", "name": "write_explanation", "input": {"summary": "Les"}}],
+        stop_reason="max_tokens",
+    )
+    client = FakeAnthropic(cut)
+
+    insight = explain(client)
+
+    assert insight.status == "failed"
+    assert "cut off" in insight.summary
+    assert len(client.calls) == 1

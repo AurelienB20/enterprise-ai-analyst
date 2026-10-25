@@ -21,7 +21,15 @@ const DECLINE_TEXT: Record<string, string> = {
   refused: "The model declined this question.",
 };
 
-export function AnalysisView({ analysis }: { analysis: Analysis }) {
+export function AnalysisView({
+  analysis,
+  explaining = false,
+  elapsed,
+}: {
+  analysis: Analysis;
+  explaining?: boolean;
+  elapsed?: number;
+}) {
   const { insight, result } = analysis;
   return (
     <div className="space-y-6">
@@ -58,7 +66,22 @@ export function AnalysisView({ analysis }: { analysis: Analysis }) {
           <p className="text-sm">{analysis.error ?? "The analysis did not complete."}</p>
         )}
 
-        {insight && (
+        {explaining && (
+          <p className="flex items-center gap-2 text-sm text-muted" role="status" aria-live="polite">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
+            Writing the explanation and checking every figure against the result…
+            {elapsed !== undefined && <span className="font-mono">{elapsed.toFixed(0)} s</span>}
+          </p>
+        )}
+
+        {insight?.status === "failed" && (
+          <p className="text-sm text-muted">
+            No written explanation for this result ({insight.summary.replace(/\.$/, "")}). The
+            figures are in the table below.
+          </p>
+        )}
+
+        {insight && insight.status !== "failed" && (
           <div className="space-y-2">
             <p className="text-lg leading-relaxed">{insight.summary}</p>
             {insight.key_points.length > 0 && (

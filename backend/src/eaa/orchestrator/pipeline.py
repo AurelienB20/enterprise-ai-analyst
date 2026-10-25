@@ -164,6 +164,14 @@ class AnalysisPipeline:
         self.max_attempts = max_attempts
 
     def run(self, question: str) -> Analysis:
+        """The whole analysis: the answer, then its explanation."""
+        analysis = self.answer(question)
+        self.explain(analysis)
+        return analysis
+
+    def answer(self, question: str) -> Analysis:
+        """Question -> SQL -> validated, read-only result. No explanation yet: a caller
+        that streams can show the result while the explanation is written."""
         masked = mask_personal_data(question)
         analysis = Analysis(
             question=masked.text, model=self.model, masked_personal_data=masked.kinds
@@ -176,18 +184,29 @@ class AnalysisPipeline:
             analysis.status = "failed"
             analysis.error_kind = "llm_error"
             analysis.error_message = error.message
-        usage = Usage()
-        usage.merge(conversation.usage)
-        if analysis.status == "answered" and self.explainer is not None:
-            self._explain(analysis)
-            if analysis.insight is not None:
-                usage.merge(analysis.insight.usage)
-        analysis.usage = usage
-        analysis.cost_usd = self.prices.cost(usage)
+        analysis.usage = Usage()
+        analysis.usage.merge(conversation.usage)
+        analysis.cost_usd = self.prices.cost(analysis.usage)
         analysis.total_ms = round((time.perf_counter() - started) * 1000, 1)
+        self._log(analysis, "answered" if analysis.status == "answered" else "ended")
+        return analysis
+
+    def explain(self, analysis: Analysis) -> None:
+        """Add the checked explanation to an answered analysis, and its cost and time."""
+        if analysis.status != "answered" or self.explainer is None:
+            return
+        self._explain(analysis)
+        if analysis.insight is not None:
+            analysis.usage.merge(analysis.insight.usage)
+            analysis.cost_usd = self.prices.cost(analysis.usage)
+            analysis.total_ms = round(analysis.total_ms + analysis.explanation_ms, 1)
+            self._log(analysis, "explained")
+
+    def _log(self, analysis: Analysis, step: str) -> None:
         logger.info(
-            "Analysis %s",
+            "Analysis %s %s",
             analysis.status,
+            step,
             extra={
                 "analysis_id": str(analysis.id),
                 "attempts": len(analysis.attempts),
@@ -196,7 +215,6 @@ class AnalysisPipeline:
                 "total_ms": analysis.total_ms,
             },
         )
-        return analysis
 
     def _explain(self, analysis: Analysis) -> None:
         if self.explainer is None or analysis.result is None or analysis.executed is None:
